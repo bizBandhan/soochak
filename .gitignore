@@ -1,0 +1,7 @@
+.env
+tasks
+vapid.json
+environment
+logs
+db
+node_modules

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131a">
+  <title>Web Push Lab</title>
+  <link rel="stylesheet" href="/web-push/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Web Push Lab home"><span class="brand-mark">↗</span> Web Push <span class="muted">Lab</span></a>
+      <span class="pill"><span class="dot"></span> Protocol demo</span>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">BROWSER → PUSH SERVICE → DEVICE</p>
+      <h1>Notifications,<br><span>without polling.</span></h1>
+      <p class="lede">A hands-on demo of the Web Push API, VAPID authentication, encrypted payload delivery and service workers.</p>
+    </section>
+
+    <section class="grid">
+      <article class="panel subscription-panel">
+        <div class="panel-head"><span class="step">01</span><div><h2>Browser subscription</h2><p>Register this browser to receive push messages.</p></div></div>
+        <div class="status-row"><span>Support</span><strong id="supportStatus">Checking…</strong></div>
+        <div class="status-row"><span>Permission</span><strong id="permissionStatus">Unknown</strong></div>
+        <div class="status-row"><span>Subscription</span><strong id="subscriptionStatus">Checking…</strong></div>
+        <div class="actions">
+          <button id="subscribeBtn" class="primary" disabled>Enable notifications</button>
+          <button id="unsubscribeBtn" class="secondary" disabled>Unsubscribe</button>
+        </div>
+        <p class="hint" id="subscriptionHint">Notifications require HTTPS in production (localhost is allowed for development).</p>
+      </article>
+
+      <article class="panel send-panel">
+        <div class="panel-head"><span class="step">02</span><div><h2>Send a test push</h2><p>Send a message from the server to every saved demo subscription.</p></div></div>
+        <label for="title">Notification title</label>
+        <input id="title" maxlength="100" value="Hello from Web Push">
+        <label for="body">Message</label>
+        <textarea id="body" rows="3" maxlength="500">Your first Web Push notification arrived.</textarea>
+        <label for="targetUrl">Click destination (same-site path)</label>
+        <input id="targetUrl" value="/" maxlength="500">
+        <button id="sendBtn" class="primary wide">Send test notification</button>
+        <p class="hint">Demo API key is configured on the server. For this sample, the UI asks for it before sending.</p>
+      </article>
+    </section>
+
+    <section class="panel flow-panel">
+      <div class="panel-head"><span class="step">03</span><div><h2>What happens under the hood?</h2><p>The browser vendor's push service handles device routing.</p></div></div>
+      <div class="flow">
+        <div class="flow-node"><span>01</span><strong>Browser</strong><small>PushManager.subscribe()</small></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node"><span>02</span><strong>App server</strong><small>VAPID + encrypted payload</small></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node"><span>03</span><strong>Push service</strong><small>Queue and route message</small></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node"><span>04</span><strong>Service worker</strong><small>push event + showNotification()</small></div>
+      </div>
+    </section>
+
+    <section class="panel log-panel">
+      <div class="panel-head"><span class="step">LOG</span><div><h2>Activity</h2><p id="subscriberCount">Saved subscriptions: —</p></div></div>
+      <ol id="activityLog" class="log" aria-live="polite"><li>Ready. Enable notifications to begin.</li></ol>
+    </section>
+
+    <footer>Web Push Lab · Express · MongoDB · VAPID · Service Worker</footer>
+  </main>
+  <script src="/web-push.js" defer></script>
+</body>
+</html>

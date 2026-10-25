@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Soochak Prototype</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="Soochak by BizBandhan">
+            <span class="brand-mark">↗</span>
+            Soochak
+            <span class="muted">by</span>
+            BizBandhan
+        </a>
+        <span class="pill">
+            <span class="dot">
+            </span>
+            Prototype In Action
+        </span>
+    </header>
+    <main class="shell">
+        <section class="grid">
+
+            <div class="hero">
+                <p class="eyebrow">BROWSER → PUSH SERVICE → DEVICE</p>
+                <h1>Notifications,<br><span>without polling.</span></h1>
+                <p class="lede">
+                    A practical demo of soochak, web push notification service. Right information at right time.
+                </p>
+            </div>
+            <div class="articles">
+
+                <article class="panel subscription-panel" is="soochak-subscribe">
+                    <div class="actions">
+                        <button data-action="subscribe" class="primary" disabled>Subscribe</button>
+                        <button data-action="unsubscribe" class="secondary" disabled>Unsubscribe</button>
+                    </div>
+                    <div class="panel-head"><span class="step">01</span>
+                        <div>
+                            <h2>Browser subscription</h2>
+                            <p>Register this browser to receive push messages.</p>
+                        </div>
+                    </div>
+                    <div class="status-row">
+                        <span>Support</span>
+                        <strong data-value="support">...</strong>
+                    </div>
+                    <div class="status-row">
+                        <span>Permission</span>
+                        <strong data-value="permission">...</strong>
+                    </div>
+                    <div class="status-row">
+                        <span>Subscription</span>
+                        <strong data-value="subscription">...</strong>
+                    </div>
+
+                </article>
+                <article class="panel send-panel" is="soochak-sender">
+                    <form action="/api/v1/web-push/notify" method="put">
+                        <div class="panel-head"><span class="step">02</span>
+                            <div>
+                                <h2>Send a test push</h2>
+                                <p>Send a message from the server to every saved demo subscription.</p>
+                            </div>
+                        </div>
+                        <label for="title">Notification title</label>
+                        <input name="title" id="title" maxlength="100" value="Hello from Web Push">
+                        <label for="body">Message</label>
+                        <textarea name="body" id="body" rows="3"
+                            maxlength="500">Your first Web Push notification arrived.</textarea>
+                        <label for="targetUrl">Click destination (same-site path)</label>
+                        <input name="url" id="targetUrl" value="/" maxlength="500">
+                        <label for="tag">Click destination (same-site path)</label>
+                        <input name="tag" id="tag" value="website notification" maxlength="500">
+                        <button id="sendBtn" class="primary wide">Notify</button>
+                        
+                    </form>
+                </article>
+            </div>
+        </section>
+
+    </main>
+    <footer>
+        Soochak, By BizBandhan, Soochna sahi samay par (Information at the right time)
+    </footer>
+    <script type="module" src="/js/web-push.js"></script>
+</body>
+
+</html>

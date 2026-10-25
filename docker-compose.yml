@@ -1,0 +1,39 @@
+services:
+  soochak: # Gateway service NGINX
+    image: optiwariindia/gateway:1.0.0
+    restart: unless-stopped
+    volumes:
+      - ./codebase/gateway/config:/etc/nginx/http.d
+      - ./codebase/gateway/logs:/data/logs
+    networks:
+      - publicweb
+      - soochak
+  # frontend: # React SPA, shall be developed at later stage
+  backend: # Express JS Applciation, Core of the project
+    image: optiwariindia/soochak:${BUILD_TARGET}-1.0.0
+    build:
+      context: ./codebase/backend
+      target: ${BUILD_TARGET}
+    restart: unless-stopped
+    env_file:
+      - ./environment/backend.env
+    volumes:
+      - ./codebase/backend/module:/bizbandhan/soochak/module
+      - ./codebase/backend/core:/bizbandhan/soochak/core
+      - ./codebase/backend/public:/bizbandhan/soochak/public
+      - ./codebase/backend/package.json:/bizbandhan/soochak/package.json
+    networks:
+      - soochak
+  db: # Mongodb, main database storage
+    image: optiwariindia/mongodb
+    restart: unless-stopped
+    networks:
+      - soochak
+    volumes:
+      - ./codebase/db/store:/data/db
+      - ./codebase/db/config:/data/config
+      - ./codebase/db/backup:/backup
+networks:
+  soochak:
+  publicweb:
+    external: true
