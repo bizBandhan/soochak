@@ -1,0 +1,773 @@
+openapi: 3.1.0
+info:
+  title: Soochak API
+  version: 1.0.0
+  description: >-
+    API documentation for authentication, current-user, user CRUD, and role CRUD
+    endpoints. /auth and /me are alternative paths for the same operations.
+servers:
+  - url: https://soochak.optiwari.duckdns.org/api/v1
+    description: Current API host
+tags:
+  - name: Authentication and current user
+  - name: User administration
+  - name: Role administration
+  - name: Permission administration
+  - name: Vendor administration
+  - name: Organization administration
+  - name: Web Push
+paths:
+  /auth:
+    get:
+      tags: [Authentication and current user]
+      summary: View current authentication status and user details
+      operationId: getAuthStatus
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Current authentication status and user details.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/AuthAndUser' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post: &changePassword
+      tags: [Authentication and current user]
+      summary: Change the logged-in user's password
+      operationId: changePassword
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './schemas.yml#/components/schemas/ChangePasswordRequest' }
+      responses:
+        '200':
+          description: Password changed successfully.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/Message' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put: &login
+      tags: [Authentication and current user]
+      summary: Log in and generate an authentication token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './schemas.yml#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Login succeeded and a token was generated.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/LoginResponse' }
+        '401':
+          description: Credentials are invalid.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+    patch: &updateProfile
+      tags: [Authentication and current user]
+      summary: Update the current user's profile
+      operationId: updateCurrentUserProfile
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: { $ref: './schemas.yml#/components/schemas/UpdateProfileRequest' }
+      responses:
+        '200':
+          description: Profile updated.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/AuthAndUser' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete: &logout
+      tags: [Authentication and current user]
+      summary: Log out and invalidate the current token
+      operationId: logout
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '204': { description: Logged out; the token is deleted or invalidated. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /me:
+    get:
+      tags: [Authentication and current user]
+      summary: View current authentication status and user details
+      operationId: getCurrentUserAndAuthStatus
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Current authentication status and user details.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/AuthAndUser' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post: *changePassword
+    put: *login
+    patch: *updateProfile
+    delete: *logout
+  /auth/user:
+    get:
+      tags: [User administration]
+      summary: List all users
+      operationId: listUsers
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: User list.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudListResponse' }
+    post:
+      tags: [User administration]
+      summary: Query users
+      description: Uses the CRUD route's request-body list/query behavior.
+      operationId: queryUsers
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Query criteria; fields depend on the user model. }
+      responses:
+        '200':
+          description: Matching user list.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudListResponse' }
+    put:
+      tags: [User administration]
+      summary: Create a user
+      operationId: createUser
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: User fields depend on the user model. }
+      responses:
+        '201':
+          description: User created.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+  /auth/user/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    get:
+      tags: [User administration]
+      summary: Get a user by ID
+      operationId: getUser
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: User record.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [User administration]
+      summary: Update a user
+      operationId: updateUser
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: User fields depend on the user model. }
+      responses:
+        '200':
+          description: User updated.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [User administration]
+      summary: Reorder users
+      operationId: reorderUsers
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Reordering payload consumed by CrudRoutes. }
+      responses:
+        '200': { description: User order updated. }
+    delete:
+      tags: [User administration]
+      summary: Delete a user
+      operationId: deleteUser
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200': { description: User deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /auth/role:
+    get:
+      tags: [Role administration]
+      summary: List all roles
+      operationId: listRoles
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Role list.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudListResponse' }
+    post:
+      tags: [Role administration]
+      summary: Query roles
+      description: Uses the CRUD route's request-body list/query behavior.
+      operationId: queryRoles
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Query criteria; fields depend on the role model. }
+      responses:
+        '200':
+          description: Matching role list.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudListResponse' }
+    put:
+      tags: [Role administration]
+      summary: Create a role
+      operationId: createRole
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Role fields depend on the role model. }
+      responses:
+        '201':
+          description: Role created.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+  /auth/role/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    get:
+      tags: [Role administration]
+      summary: Get a role by ID
+      operationId: getRole
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Role record.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Role administration]
+      summary: Update a role
+      operationId: updateRole
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Role fields depend on the role model. }
+      responses:
+        '200':
+          description: Role updated.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Role administration]
+      summary: Reorder roles
+      operationId: reorderRoles
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Reordering payload consumed by CrudRoutes. }
+      responses:
+        '200': { description: Role order updated. }
+    delete:
+      tags: [Role administration]
+      summary: Delete a role
+      operationId: deleteRole
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200': { description: Role deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /auth/permission:
+    get:
+      tags: [Permission administration]
+      summary: List all permissions
+      operationId: listPermissions
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Permission list.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudListResponse' }
+    post:
+      tags: [Permission administration]
+      summary: Query permissions
+      description: Uses CrudRoutes request-body list/query behavior.
+      operationId: queryPermissions
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Query criteria; fields depend on the permission model. }
+      responses:
+        '200':
+          description: Matching permission list.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudListResponse' }
+    put:
+      tags: [Permission administration]
+      summary: Create a permission
+      operationId: createPermission
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [authorization, resource, action], properties: { authorization: { type: string, description: 'user:<name> or role:<name>' }, resource: { type: string, description: 'Resource identifier such as module:feature' }, action: { type: array, items: { type: string }, description: 'Allowed actions' } } }
+      responses:
+        '201':
+          description: Permission created.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+  /auth/permission/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    get:
+      tags: [Permission administration]
+      summary: Get a permission by ID
+      operationId: getPermission
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Permission record.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Permission administration]
+      summary: Update a permission
+      operationId: updatePermission
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [authorization, resource, action], properties: { authorization: { type: string, description: 'user:<name> or role:<name>' }, resource: { type: string, description: 'Resource identifier such as module:feature' }, action: { type: array, items: { type: string }, description: 'Allowed actions' } } }
+      responses:
+        '200':
+          description: Permission updated.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Permission administration]
+      summary: Reorder permissions
+      operationId: reorderPermissions
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Reordering payload consumed by CrudRoutes. }
+      responses:
+        '200': { description: Permission order updated. }
+    delete:
+      tags: [Permission administration]
+      summary: Delete a permission
+      operationId: deletePermission
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200': { description: Permission deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /auth/vendor:
+    get:
+      tags: [Vendor administration]
+      summary: List all vendors
+      operationId: listVendors
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Vendor list.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudListResponse' }
+    post:
+      tags: [Vendor administration]
+      summary: Query vendors
+      description: Uses CrudRoutes request-body list/query behavior.
+      operationId: queryVendors
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Query criteria; fields depend on the vendor model. }
+      responses:
+        '200':
+          description: Matching vendor list.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudListResponse' }
+    put:
+      tags: [Vendor administration]
+      summary: Create a vendor
+      operationId: createVendor
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: 'Vendor model fields are not defined in the current repository yet.' }
+      responses:
+        '201':
+          description: Vendor created.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+  /auth/vendor/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    get:
+      tags: [Vendor administration]
+      summary: Get a vendor by ID
+      operationId: getVendor
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Vendor record.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Vendor administration]
+      summary: Update a vendor
+      operationId: updateVendor
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: 'Vendor model fields are not defined in the current repository yet.' }
+      responses:
+        '200':
+          description: Vendor updated.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Vendor administration]
+      summary: Reorder vendors
+      operationId: reorderVendors
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Reordering payload consumed by CrudRoutes. }
+      responses:
+        '200': { description: Vendor order updated. }
+    delete:
+      tags: [Vendor administration]
+      summary: Delete a vendor
+      operationId: deleteVendor
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200': { description: Vendor deleted. }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /web-push/config:
+    get:
+      tags: [Web Push]
+      summary: Get the Web Push VAPID public key
+      operationId: getWebPushConfig
+      responses:
+        '200':
+          description: Public VAPID key for browser subscription.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/WebPushConfigResponse' }
+  /web-push/subscriber:
+    get:
+      tags: [Web Push]
+      summary: List subscribers
+      operationId: listSubscribers
+      responses:
+        '200':
+          description: Subscriber records in the current request scope.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/SubscriberListResponse' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Web Push]
+      summary: Query subscribers
+      description: Lists subscribers using the request body as query criteria.
+      operationId: querySubscribers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Subscriber query criteria. }
+      responses:
+        '200':
+          description: Matching subscriber records.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/SubscriberListResponse' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    put:
+      tags: [Web Push]
+      summary: Create a subscriber record
+      operationId: createSubscriber
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './schemas.yml#/components/schemas/SubscriberInput' }
+      responses:
+        '201':
+          description: Subscriber record created.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/SubscriberItemResponse' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Web Push]
+      summary: Update a subscriber by endpoint
+      operationId: updateSubscriber
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './schemas.yml#/components/schemas/SubscriberInput' }
+      responses:
+        '200':
+          description: Subscriber record updated.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/SubscriberItemResponse' }
+        '404': { description: Subscriber endpoint was not found. }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Web Push]
+      summary: Delete a subscriber by endpoint
+      operationId: deleteSubscriber
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint]
+              properties:
+                endpoint: { type: string, format: uri }
+      responses:
+        '200':
+          description: Subscriber record deleted.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/SubscriberItemResponse' }
+        '404': { description: Subscriber endpoint was not found. }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /web-push/notify:
+    put:
+      tags: [Web Push]
+      summary: Send a notification to current subscribers
+      description: Persists the notification and emits the asynchronous Web Push delivery event.
+      operationId: sendWebPushNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './schemas.yml#/components/schemas/NotificationInput' }
+      responses:
+        '200':
+          description: Notification record created and delivery event emitted.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/NotificationResponse' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    get:
+      tags: [Web Push]
+      summary: List notifications (under development)
+      operationId: listNotifications
+      responses:
+        '502': { description: Endpoint is currently under development. }
+    post:
+      tags: [Web Push]
+      summary: Query notifications (under development)
+      operationId: queryNotifications
+      responses:
+        '502': { description: Endpoint is currently under development. }
+    patch:
+      tags: [Web Push]
+      summary: Update notifications (under development)
+      operationId: updateNotifications
+      responses:
+        '502': { description: Endpoint is currently under development. }
+    delete:
+      tags: [Web Push]
+      summary: Delete notifications (under development)
+      operationId: deleteNotifications
+      responses:
+        '502': { description: Endpoint is currently under development. }
+  /auth/organization:
+    get:
+      tags: [Organization administration]
+      summary: List organizations for the request origin
+      operationId: listOrganizations
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Organization list.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/OrganizationListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Organization administration]
+      summary: Query organizations for the request origin
+      operationId: queryOrganizations
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Query criteria for organization records. }
+      responses:
+        '200':
+          description: Matching organizations.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/OrganizationListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Organization administration]
+      summary: Register an organization
+      description: Creates an organization record scoped to the request origin, then emits an asynchronous event to create the owner user and seed the owner role and permissions. Owner provisioning is not part of the immediate CRUD response; hostname verification is not implemented.
+      operationId: registerOrganization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './schemas.yml#/components/schemas/OrganizationRegistrationRequest' }
+      responses:
+        '201':
+          description: Organization record created.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/OrganizationItemResponse' }
+  /auth/organization/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    get:
+      tags: [Organization administration]
+      summary: Read an organization
+      operationId: readOrganization
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Organization record.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/OrganizationItemResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Organization administration]
+      summary: Update an organization
+      operationId: updateOrganization
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './schemas.yml#/components/schemas/OrganizationInput' }
+      responses:
+        '200':
+          description: Organization updated.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/OrganizationItemResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Organization administration]
+      summary: Unsupported for organizations
+      operationId: reorderOrganizationsUnsupported
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '405': { description: PATCH is disabled for organization records. }
+    delete:
+      tags: [Organization administration]
+      summary: Delete an organization
+      operationId: deleteOrganization
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Organization deleted.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/OrganizationItemResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+components:
+  parameters:
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    authCookie:
+      type: apiKey
+      in: cookie
+      name: authorization
+      description: Authorization cookie containing `Bearer <JWT>`, as expected by the current guard implementation.
+  responses:
+    BadRequest:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema: { $ref: './schemas.yml#/components/schemas/Error' }
+    Unauthorized:
+      description: Authentication is required or credentials are invalid.
+      content:
+        application/json:
+          schema: { $ref: './schemas.yml#/components/schemas/Error' }
+    NotFound:
+      description: The requested record does not exist.
+      content:
+        application/json:
+          schema: { $ref: './schemas.yml#/components/schemas/Error' }
+    ServerError:
+      description: The request failed while processing the operation.
+      content:
+        application/json:
+          schema: { $ref: './schemas.yml#/components/schemas/Error' }
+    TooManyRequests:
+      description: Too many authentication attempts.
+      content:
+        application/json:
+          schema: { $ref: './schemas.yml#/components/schemas/Error' }

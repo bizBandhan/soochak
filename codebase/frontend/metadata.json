@@ -1,0 +1,6 @@
+{
+  "name": "Soochak by BizBandhan",
+  "description": "Developer-first Web Push notification management dashboard for organizations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

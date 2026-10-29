@@ -1,0 +1,173 @@
+components:
+  schemas:
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    LoginResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token: { type: string, description: Bearer authentication token. }
+        tokenType: { type: string, const: Bearer }
+        expiresAt: { type: string, format: date-time }
+        user: { $ref: '#/components/schemas/UserDetails' }
+    AuthAndUser:
+      type: object
+      required: [authenticated, user]
+      properties:
+        authenticated: { type: boolean, const: true }
+        user: { $ref: '#/components/schemas/UserDetails' }
+    UserDetails:
+      type: object
+      required: [id, email]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        name: { type: string }
+        organization:
+          type: string
+          description: Organization associated with the user's canonical origin.
+    ChangePasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: { type: string, format: password }
+        newPassword: { type: string, format: password, minLength: 12 }
+    UpdateProfileRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1 }
+        email: { type: string, format: email }
+    Message:
+      type: object
+      properties:
+        message: { type: string }
+    CrudListResponse:
+      type: object
+      properties:
+        status: { type: string }
+        message: { type: string }
+        data:
+          type: array
+          items: { type: object, additionalProperties: true }
+    CrudItemResponse:
+      type: object
+      properties:
+        status: { type: string }
+        message: { type: string }
+        data: { type: object, additionalProperties: true }
+    OrganizationInput:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      description: The organization origin is derived from the request host and cannot be supplied in this body.
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        limits: { type: object, additionalProperties: true }
+        owner:
+          type: object
+          required: [user, name, sex, dob, email, password]
+          properties:
+            user: { type: string }
+            name:
+              type: object
+              required: [first, last]
+              properties:
+                salutation: { type: string }
+                first: { type: string }
+                middle: { type: string }
+                last: { type: string }
+            sex: { type: string, enum: [Male, Female, Other] }
+            dob: { type: string, format: date }
+            email: { type: string, format: email }
+            phone: { type: string }
+            timezone: { type: string }
+            profilePicture: { type: string, format: uri }
+            password: { type: string, format: password }
+    OrganizationRecord:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        origin: { type: string }
+        limits: { type: object, additionalProperties: true }
+    OrganizationRegistrationRequest:
+      allOf:
+        - $ref: '#/components/schemas/OrganizationInput'
+        - type: object
+          required: [owner]
+    OrganizationListResponse:
+      type: object
+      properties:
+        status: { type: string }
+        message: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/OrganizationRecord' }
+    OrganizationItemResponse:
+      type: object
+      properties:
+        status: { type: string }
+        message: { type: string }
+        data: { $ref: '#/components/schemas/OrganizationRecord' }
+    WebPushConfigResponse:
+      type: object
+      properties:
+        status: { type: string, example: success }
+        message: { type: string }
+        data: { type: string, description: Public VAPID key. }
+    SubscriberInput:
+      type: object
+      required: [endpoint]
+      properties:
+        endpoint: { type: string, format: uri }
+        expirationTime: { type: string, nullable: true }
+        keys:
+          type: object
+          additionalProperties: { type: string }
+        userAgent: { type: string }
+        memberInfo: { type: object, additionalProperties: true }
+    SubscriberListResponse:
+      type: object
+      properties:
+        status: { type: string }
+        message: { type: string }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SubscriberInput' }
+    SubscriberItemResponse:
+      type: object
+      properties:
+        status: { type: string }
+        message: { type: string }
+        data: { $ref: '#/components/schemas/SubscriberInput' }
+    NotificationInput:
+      type: object
+      required: [title, body]
+      properties:
+        title: { type: string }
+        body: { type: string }
+        url: { type: string, format: uri }
+        tag: { type: string }
+    NotificationResponse:
+      type: object
+      properties:
+        status: { type: string }
+        message: { type: string }
+        data:
+          type: object
+          additionalProperties: true
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
