@@ -3,15 +3,33 @@
 **Product:** Soochak by BizBandhan  
 **Status:** Draft backlog; priorities are proposed for MVP planning.
 
-The current prototype is limited to internal accounts and test devices. The prototype's access model is one user owning multiple resources, without organization membership or team roles. Verification is manual; automated tests are planned after the prototype.
+The current prototype is limited to internal organizations and test devices. One organization maps to one canonical hostname used as its tenancy origin; users belong to one organization in the current model. Roles group users, while permissions may be granted to a user or role. Verification is manual; automated tests are planned after the prototype.
+
+## US-00 — Register an organization and owner (Must)
+As a prospective organization owner, I want to register my organization with its hostname so that I can initialize Soochak for my team.
+
+**Acceptance criteria**
+- Registration requires organization name, slug, expected hostname, and owner account details.
+- Hostnames are canonicalized and unique; a hostname already assigned to another organization is rejected.
+- The system creates the organization and owner, seeds default roles and permissions, assigns the owner role, and sends a welcome note.
+- A pending organization cannot use protected organization APIs until its hostname verification passes.
+- Registration responses never include the submitted password or password hash.
+
+## US-00a — Initialize a self-hosted instance (Should)
+As a self-hosted instance operator, I want a first-run setup page so that I can create the initial organization and owner.
+
+**Acceptance criteria**
+- Setup displays the current hostname and allows confirmation of the canonical host.
+- Hostnames such as DuckDNS names may resolve to a private LAN address when accessed over valid HTTPS.
+- Completing setup disables the initial bootstrap flow.
 
 ## MVP: Integration and First Delivery
 
 ### US-01 — Configure a resource (Must)
-As a registered user, I want to register multiple website resources so that each site's subscriptions and subscriber limit are kept separate.
+As an authorized organization user, I want to register website resources so that each site's subscriptions and subscriber limit are kept separate.
 
 **Acceptance criteria**
-- I can create and view resources owned by my account.
+- I can create and view resources scoped to my organization.
 - Invalid origins and missing required configuration are rejected with a clear message.
 - Each resource has a stable ID, allowed origins, a public SDK identifier, a VAPID public key, and a subscriber limit.
 - Separate site ownership verification is not required for the internal prototype.
@@ -76,20 +94,38 @@ As a platform operator, I want expired subscriber records deleted so that repeat
 
 ## Platform and Security
 
-### US-09 — Enforce user/resource access (Must)
-As a registered user, I want resource data limited to resources I own so that subscriber and campaign data stays private.
+### US-09 — Enforce organization and permission access (Must)
+As an organization user, I want data limited to my organization and assigned permissions so that subscriber and campaign data stays private.
 
 **Acceptance criteria**
-- API authorization applies to every user-owned resource.
-- Direct requests with another user's resource ID are denied.
+- API authorization applies to every organization-scoped resource.
+- Direct requests with another organization's origin/resource ID are denied.
 - Manual prototype checks cover read and write access paths; automated security tests are deferred until after the prototype.
 
-### US-10 — Manage team roles (Future)
-As an account owner, I want to invite team members and assign roles so that collaborators receive only the access they need.
+### US-10 — Group users and grant permissions (Must)
+As an organization owner, I want to assign users to roles and grant permissions to a user or role so that collaborators receive the access they need.
 
 **Acceptance criteria**
-- Role capabilities are documented and applied consistently in UI and API.
-- Removing a member revokes access promptly.
+- Roles group users; permission grants determine allowed actions.
+- Direct-user and role grants are resolved consistently in the API.
+- Users and roles from a different organization origin cannot be assigned or used.
+
+### US-11 — Discover API contracts in Swagger (Must)
+As a frontend or SDK developer, I want browsable API documentation so that I can integrate against the same route and payload contract as the backend.
+
+**Acceptance criteria**
+- Swagger UI is available at `/api-docs/` and loads the OpenAPI document and shared schemas from the same directory.
+- Documentation covers current-user authentication/profile operations, generated user/role/permission/vendor CRUD routes, and Web Push endpoints.
+- The spec identifies endpoints that are planned or under development and reflects actual status codes and security middleware.
+
+### US-12 — Manage Soochak through the dashboard (Must)
+As an organization owner or operator, I want a dashboard for notifications, subscribers, sites, and account administration so that I can operate Soochak without direct API calls.
+
+**Acceptance criteria**
+- The dashboard provides overview, notifications, compose/send, subscribers, sites/resources, push configuration, administration, organization settings, and profile/security pages.
+- Pages clearly distinguish connected data from seeded/demo data and unavailable API operations.
+- The UI does not report a notification as delivered based only on event emission or provider acceptance.
+- Authentication, tenant scoping, and permission decisions are enforced by the backend, not only by frontend route guards.
 
 ## Future Candidates
 

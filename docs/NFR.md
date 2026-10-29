@@ -5,11 +5,19 @@
 
 ## 1. Security and Privacy
 
-- Enforce user ownership of resources and authorization on every server-side read and write; check cross-user access paths.
+- Enforce organization-origin scope and user authorization on every server-side read and write; check cross-organization access paths.
+- Enforce organization tenancy using one canonical, unique hostname per organization. Normalize hostname case/port consistently; never treat an arbitrary client-supplied host as trusted without the deployment's trusted-proxy/host validation configuration.
+- For self-hosted deployments, support a DNS hostname (including dynamic DNS such as DuckDNS) resolving to a private LAN address when browser access uses valid HTTPS. Raw HTTP access by a remote private IP is not a supported Web Push context.
+- Keep organization-hostname verification separate from verification of each customer website resource. The organization verification challenge is still to be selected.
 - Serve production SDK, dashboard, and API over HTTPS. Never log credentials, VAPID private keys, or full subscription secrets.
 - Use one VAPID key pair per environment. Store the private key encrypted in an environment-level database record; keep its AES encryption key separately in backend secret configuration. Define key rotation and backup procedures before production.
 - Validate and constrain notification fields and destination URLs. Protect click redirects against unsafe schemes and open-redirect abuse.
 - Apply authentication throttling, API rate limits, payload limits, and usage controls. Provide auditable administrative actions.
+- Authentication middleware must validate JWT signature and expiry, bind the token to the canonical request origin, and load a safe user projection. Never return decoded token contents in errors or log raw token values; the current guard and token helper need this cleanup before route enforcement.
+- Authorization must be a separate check after authentication: resolve direct-user and role grants within the same organization origin and enforce resource/action scope on every protected operation. Deny by default when a grant or policy is missing.
+- Cookie-based auth requires Secure, HttpOnly, and an intentional SameSite policy; protect state-changing cookie-authenticated requests against CSRF. Keep the Authorization bearer-header path supported only if that is the chosen client contract.
+- The current dashboard initializes a seeded demo session when no token exists and stores bearer tokens in `localStorage`; remove demo auto-login and select a production token/CSRF strategy before deployment.
+- Simulation fallbacks must be visibly labeled and must not turn backend failures into apparent successful writes or delivery outcomes.
 - Prototype use is limited to internal accounts and test devices. The browser still requires explicit user-action opt-in. Name/email fields are not collected or used initially.
 - Delete subscriber records immediately on unsubscribe and on definitive expired/unregistered endpoint responses (for example, HTTP 404/410); retain them through transient delivery errors.
 - Define consent, data retention, deletion, and incident response policies before handling production subscriber data.
@@ -47,6 +55,8 @@
 
 - Use structured, correlated logs and metrics across API, scheduler, and workers; redact sensitive data.
 - Keep service boundaries, API contracts, environment configuration, and operational runbooks documented.
+- Keep the OpenAPI contract in `codebase/backend/public/api-docs/` aligned with actual route handlers, status codes, request/response shapes, and middleware. Do not document a security scheme as implemented until the corresponding middleware is enforced.
+- Swagger UI currently loads its assets from a public CDN; bundle/pin assets locally or confirm the CDN dependency is acceptable before offline or restricted-network deployment.
 - Pin and update dependencies through a documented review process; scan dependencies and container images before production.
 
 ## 7. Unset Targets
