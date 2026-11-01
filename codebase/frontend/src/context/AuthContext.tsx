@@ -7,7 +7,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { UserProfile, Organization, OrganizationRegistrationPayload } from '../types';
 import { authService, organizationService } from '../services/apiAdapters';
-import { apiClient, SEED_ORGANIZATION, SEED_USER } from '../services/apiClient';
+import { apiClient, SEED_ORGANIZATION } from '../services/apiClient';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -59,27 +59,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const initAuth = useCallback(async () => {
     setIsLoading(true);
-    const existingToken = apiClient.getToken();
-    if (existingToken) {
-      try {
-        const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
-        setToken(existingToken);
-        await reloadOrg();
-      } catch {
-        // Fallback to active demo state so operator doesn't get blocked
-        setUser(SEED_USER);
-        setOrganization(SEED_ORGANIZATION);
-      }
-    } else {
-      // For immediate preview convenience, start with signed-in operator session
-      // (User can also test explicit Logout and Login flow)
-      setUser(SEED_USER);
-      setOrganization(SEED_ORGANIZATION);
-      setToken('seed-operator-token');
-      apiClient.setToken('seed-operator-token');
+    try {
+      const currentUser = await authService.getCurrentUser();
+      setUser(currentUser);
+      setToken(apiClient.getToken());
+      await reloadOrg();
+    } catch {
+      apiClient.setToken(null);
+      setUser(null);
+      setOrganization(null);
+      setToken(null);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, [reloadOrg]);
 
   useEffect(() => {
@@ -160,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         organization,
         token,
-        isAuthenticated: !!token && !!user,
+        isAuthenticated: !!user,
         isLoading,
         isSimulationMode,
         setSimulationMode,

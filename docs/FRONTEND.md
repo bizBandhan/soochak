@@ -1,11 +1,11 @@
 # Frontend Status and Route Guide
 
 **Product:** Soochak by BizBandhan  
-**Status:** Prototype dashboard; UI pages exist, and API integration is partial. Updated 2026-10-29.
+**Status:** Prototype dashboard; UI pages exist, and API integration is partial. Registration decisions below describe the target flow and are not yet implemented. Updated 2026-10-30.
 
 ## Application
 
-The standalone dashboard is under `codebase/frontend/`. It uses React 19, TypeScript, Vite, Tailwind CSS, and React Router. It is not currently a service in `docker-compose.yml`; run it separately from the backend.
+The dashboard is under `codebase/frontend/`. It uses React 19, TypeScript, Vite, Tailwind CSS, and React Router. It is available as the `frontend` service in `docker-compose.yml`; the gateway routes non-API paths to it and routes `/api...` paths to the backend.
 
 ```bash
 cd codebase/frontend
@@ -20,7 +20,7 @@ Set `VITE_API_BASE_URL` to the API base URL when needed; the default is `/api/v1
 | Frontend route | Page | Current state |
 |---|---|---|
 | `/login` | Login | UI and API adapter exist; demo fallback/auth behavior remains and backend login route is not mounted. |
-| `/register-org` | Organization registration | UI and adapter call `PUT /api/v1/auth/organization`; owner provisioning is asynchronous. Hostname verification is unavailable. |
+| `/register-org` | Organization registration | Target flow collects organization details, customer website origin, and owner credentials; creates a pending organization whose owner cannot access the tenant dashboard/API; and requires platform-operator approval. The existing adapter/backend do not implement these review states. |
 | `/` | Dashboard overview | Dashboard shell exists; metrics use seeded/demo data where APIs are unavailable. |
 | `/notifications` | Notification history | UI exists; backend `GET /web-push/notify` is under development and the adapter returns simulated history on errors. |
 | `/notifications/compose` | Compose and send | UI calls `PUT /api/v1/web-push/notify`; current backend emits an asynchronous event but does not confirm provider delivery. |
@@ -45,6 +45,10 @@ Known contract gaps to resolve before live use:
 - `AuthContext` starts a seeded demo session when there is no saved token. Organization registration also assigns a locally generated token instead of a server-issued login token; the context token and API-client token are generated separately and can differ.
 - Owner profile sex values are lowercase in frontend types, while the backend user model accepts `Male`, `Female`, or `Other`.
 - Organization provisioning status is event-driven; the current API has no status/polling endpoint, so the UI cannot confirm that the owner/role/grants are ready.
+- The target signup flow requires pending-review status emails, approve/request-changes/reject outcomes, a restricted registration area for applicants asked to make changes, and activation only after successful provisioning. These are not implemented.
+- The target operator console is protected and uses `mgmt.soochak.optiwari.duckdns.org` in local development and `mgmt.soochak.bizbandhan.com` in production. Hosted tenant dashboards/APIs use `[tenant].soochak.optiwari.duckdns.org` locally and `[tenant].soochak.bizbandhan.com` in production. The current backend derives tenant scope from request host and does not yet separate tenant dashboard host from customer website origin.
+- Direct operator-created organizations skip applicant review; the operator supplies the owner's initial password outside the system and the owner must change it at first login. Operator provisioning must gate activation.
+- Email verification, hostname ownership checks, custom dashboard domains, plan payment, and synchronized updates/configuration for self-hosted deployments are deferred.
 - Sites are local simulation data; there is no resource API contract yet.
 - User/role/permission screens use static seed records; the documented routes are not mounted. Vendor has no backend model.
 - Subscriber/notification fields in demo records (such as tags and delivery stats) exceed the current backend schemas.

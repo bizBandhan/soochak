@@ -27,6 +27,60 @@ let simOrg: Organization = { ...SEED_ORGANIZATION };
 let simUser: UserProfile = { ...SEED_USER };
 let simSites: SiteResource[] = [...SEED_SITES];
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const normalizeCurrentUser = (response: unknown): UserProfile => {
+  const payload =
+    isRecord(response) && 'data' in response ? response.data : response;
+  const user = isRecord(payload) && 'user' in payload ? payload.user : payload;
+
+  if (!isRecord(user)) {
+    throw new Error('The /me response did not include user details.');
+  }
+
+  const id =
+    typeof user._id === 'string' ? user._id :
+    typeof user.id === 'string' ? user.id :
+    null;
+  const email = typeof user.email === 'string' ? user.email : null;
+
+  if (!id || !email || (isRecord(payload) && payload.authenticated === false)) {
+    throw new Error('The /me response did not include valid user details.');
+  }
+
+  const name = user.name;
+  const fullName = typeof name === 'string' ? name.trim() : '';
+  const nameParts = fullName ? fullName.split(/\s+/) : [];
+  const nameRecord = isRecord(name) ? name : {};
+  const first =
+    typeof nameRecord.first === 'string' ? nameRecord.first :
+    nameParts[0] || email.split('@')[0];
+  const last =
+    typeof nameRecord.last === 'string' ? nameRecord.last :
+    nameParts.slice(1).join(' ');
+
+  return {
+    _id: id,
+    user: typeof user.user === 'string' ? user.user : email,
+    name: { first, last },
+    email,
+    phone: typeof user.phone === 'string' ? user.phone : undefined,
+    sex: user.sex === 'male' || user.sex === 'female' || user.sex === 'other'
+      ? user.sex
+      : undefined,
+    dob: typeof user.dob === 'string' ? user.dob : undefined,
+    timezone: typeof user.timezone === 'string' ? user.timezone : undefined,
+    profilePicture: typeof user.profilePicture === 'string' ? user.profilePicture : undefined,
+    organizationId: typeof user.organizationId === 'string' ? user.organizationId : undefined,
+    roles: Array.isArray(user.roles) && user.roles.every((role) => typeof role === 'string')
+      ? user.roles
+      : undefined,
+    createdAt: typeof user.createdAt === 'string' ? user.createdAt : undefined,
+    updatedAt: typeof user.updatedAt === 'string' ? user.updatedAt : undefined,
+  };
+};
+
 export interface ApiResponse<T> {
   data: T;
   message?: string;
@@ -78,19 +132,12 @@ export const authService = {
   },
 
   /**
-   * GET /auth or GET /me
+   * GET /me
    * Retrieve current auth status and user details
    */
   async getCurrentUser(): Promise<UserProfile> {
-    try {
-      const res = await apiClient.api.get('/me');
-      return res.data || res.user || res;
-    } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        return simUser;
-      }
-      throw err;
-    }
+    const response: unknown = await apiClient.api.get('/me');
+    return normalizeCurrentUser(response);
   },
 
   /**

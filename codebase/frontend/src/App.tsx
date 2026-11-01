@@ -46,7 +46,7 @@ export default function App() {
         <Routes>
           {/* Public Auth Routes */}
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register-org" element={<RegisterOrgPage />} />
+          <Route path="/register" element={<RegisterOrgPage />} />
 
           {/* Authenticated Dashboard Shell */}
           <Route

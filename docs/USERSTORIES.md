@@ -3,17 +3,34 @@
 **Product:** Soochak by BizBandhan  
 **Status:** Draft backlog; priorities are proposed for MVP planning.
 
-The current prototype is limited to internal organizations and test devices. One organization maps to one canonical hostname used as its tenancy origin; users belong to one organization in the current model. Roles group users, while permissions may be granted to a user or role. Verification is manual; automated tests are planned after the prototype.
+The running prototype is limited to internal organizations and test devices. The target hosted-SaaS model uses a tenant-specific Soochak dashboard/API hostname, separate from the customer's website origin; users belong to one organization for now. Self-service signup requires operator review, while direct operator-created organizations skip applicant review. Email/hostname ownership verification, custom dashboard domains, and payment are deferred. Verification is manual; automated tests are planned after the prototype.
 
-## US-00 — Register an organization and owner (Must)
-As a prospective organization owner, I want to register my organization with its hostname so that I can initialize Soochak for my team.
+## US-00 — Submit an organization for review (Must)
+As a prospective organization owner, I want to submit my organization, primary website origin, and owner account details so that Soochak can review and set up my tenant.
 
 **Acceptance criteria**
-- Registration requires organization name, slug, expected hostname, and owner account details.
-- Hostnames are canonicalized and unique; a hostname already assigned to another organization is rejected.
-- The system creates the organization and owner, seeds default roles and permissions, assigns the owner role, and sends a welcome note.
-- A pending organization cannot use protected organization APIs until its hostname verification passes.
+- Registration requires organization name, slug, canonical customer website origin, and owner account details; the owner chooses a password.
+- The system creates a pending-review organization and an owner account that cannot access the tenant dashboard/API before approval.
+- Required owner, role, and permission provisioning must succeed before approval can activate tenant access.
+- The applicant receives status emails at the submitted contact address; the address is not treated as verified in this phase.
 - Registration responses never include the submitted password or password hash.
+
+## US-00b — Review self-service registrations (Must)
+As a platform operator, I want a protected management portal to approve, request changes, or reject registration requests so that new tenants are reviewed before activation.
+
+**Acceptance criteria**
+- The operator portal uses `mgmt.soochak.optiwari.duckdns.org` in local development and `mgmt.soochak.bizbandhan.com` in production.
+- Approving activates the tenant only after required provisioning succeeds.
+- Requesting changes includes a reason; the applicant can use password sign-in to a restricted registration area and edit/resubmit without tenant dashboard/API access.
+- Rejection includes a reason; the applicant must submit a new registration.
+
+## US-00c — Create an organization directly (Must)
+As a platform operator, I want to create an organization without the applicant-review step so that I can provision managed tenants directly.
+
+**Acceptance criteria**
+- Direct operator-created organizations become active only after owner, role, and permission provisioning succeeds.
+- The operator supplies the owner's initial password outside the system; the owner must change it at first login.
+- Credentials are never written to logs, URLs, or documentation.
 
 ## US-00a — Initialize a self-hosted instance (Should)
 As a self-hosted instance operator, I want a first-run setup page so that I can create the initial organization and owner.
@@ -99,7 +116,7 @@ As an organization user, I want data limited to my organization and assigned per
 
 **Acceptance criteria**
 - API authorization applies to every organization-scoped resource.
-- Direct requests with another organization's origin/resource ID are denied.
+- Direct requests referencing another tenant organization's resource ID are denied.
 - Manual prototype checks cover read and write access paths; automated security tests are deferred until after the prototype.
 
 ### US-10 — Group users and grant permissions (Must)
@@ -108,7 +125,7 @@ As an organization owner, I want to assign users to roles and grant permissions 
 **Acceptance criteria**
 - Roles group users; permission grants determine allowed actions.
 - Direct-user and role grants are resolved consistently in the API.
-- Users and roles from a different organization origin cannot be assigned or used.
+- Users and roles from a different tenant organization cannot be assigned or used.
 
 ### US-11 — Discover API contracts in Swagger (Must)
 As a frontend or SDK developer, I want browsable API documentation so that I can integrate against the same route and payload contract as the backend.

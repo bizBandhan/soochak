@@ -44,11 +44,12 @@ Soochak is being designed to work with existing web applications, including webs
 - Retry handling, expired-subscription cleanup, and duplicate-job prevention.
 
 ### Multi-Tenant SaaS
-- Organizations are scoped to one canonical hostname (`origin`).
-- Users, roles, permissions, and resources are scoped to that organization origin.
+- Each hosted organization gets a tenant-specific Soochak dashboard/API hostname, using `[tenant].soochak.optiwari.duckdns.org` in local development and `[tenant].soochak.bizbandhan.com` in production.
+- The customer's primary website origin is collected separately for Web Push setup; it is not the dashboard/API hostname.
+- Users, roles, permissions, and resources are scoped to the tenant organization. Users belong to one organization for now.
 - Roles group organization users; permissions may be granted to a user or a role.
-- Organization-specific usage limits are planned; their categories and values are not yet defined.
-- Configurable usage limits and subscription plans.
+- Public self-service signup and platform-operator-created organizations are planned. Self-service organizations require operator approval before activation.
+- Usage limits and paid plans are planned; billing flow and plan definitions are not yet selected.
 
 ### Analytics and Observability
 - Campaign processing status.
@@ -60,14 +61,14 @@ Soochak is being designed to work with existing web applications, including webs
 
 ## Architecture
 
-The prototype Compose topology defines three services: `backend`, `db`, and `soochak` (the project-named NGINX gateway). The gateway joins the pre-existing external `publicweb` network so the server's NGINX Proxy Manager can route traffic to it. It also joins the stack's private network with `backend` and `db`; the backend addresses MongoDB by the service hostname `db`. A standalone React/Vite dashboard exists under `codebase/frontend/`, but is not yet included as a Compose service. The gateway and database use the project-maintained `optiwariindia/gateway` and `optiwariindia/mongodb` images.
+The Compose topology defines `frontend`, `backend`, `db`, and `soochak` (the project-named NGINX gateway). The gateway joins the pre-existing external `publicweb` network so the server's NGINX Proxy Manager can route traffic to it. It also joins the stack's private network with the frontend, backend, and database; the backend addresses MongoDB by the service hostname `db`. By default, the gateway sends requests to `frontend:3000` in development or `frontend:80` in production. Requests whose URI starts with `/api` go to `backend:3000` in both environments. The gateway and database use the project-maintained `optiwariindia/gateway` and `optiwariindia/mongodb` images.
 
 ```yaml
 services:
   soochak: # NGINX gateway; attached to publicweb and the stack network
+  frontend: # React/Vite dashboard; selected by BUILD_TARGET
   backend: # Express API; attached to the stack network
   db:      # MongoDB; attached to the stack network
-  # frontend: # Standalone dashboard exists; Compose integration is deferred
 networks:
   soochak:     # Private network for this stack
   publicweb:   # Existing external network managed by the server environment
@@ -75,19 +76,23 @@ networks:
 
 The prototype page at `codebase/backend/public/index.html` registers `/sw.js`, offers browser subscription controls, and has a test-notification form. The worker handles push display and notification clicks; customer integrations must account for existing customer Service Workers and must not replace them silently. The one-off send and auth flows are still being completed and have not yet passed an end-to-end check.
 
-The backend contains an Express/Mongoose bootstrap, static serving configured for `codebase/backend/public/`, Web Push subscriber/config routes, an in-progress one-off notification route, and an organization CRUD route that emits asynchronous owner/role/permission provisioning. Login, full hostname verification/bootstrap recovery, authorization policy, and verified end-to-end notification delivery remain unfinished. The dashboard page inventory and known integration gaps are documented in [`docs/FRONTEND.md`](docs/FRONTEND.md).
+The backend contains an Express/Mongoose bootstrap, static serving configured for `codebase/backend/public/`, Web Push subscriber/config routes, an in-progress one-off notification route, and an organization CRUD route that emits asynchronous owner/role/permission provisioning. Login, reviewed onboarding, activation recovery, authorization policy, and verified end-to-end notification delivery remain unfinished. Email and customer website/dashboard hostname ownership verification are deferred from initial activation. The dashboard page inventory and known integration gaps are documented in [`docs/FRONTEND.md`](docs/FRONTEND.md); target user and delivery sequences are in [`docs/sequence.md`](docs/sequence.md).
 
 ### Organization and Host Tenancy
 
-The current product model maps one organization to one canonical hostname. `req.origin` is derived from the request host and is the tenancy key used by `MongooseModel`/`CrudController`; there is no separate `organizationId` or Membership record in this model. A user belongs to one organization origin. If a user later needs membership in multiple organizations, revisit this decision and add an explicit membership model.
+The target hosted-SaaS model gives each organization a tenant-specific Soochak dashboard/API hostname. Local development uses `[tenant].soochak.optiwari.duckdns.org`; production uses `[tenant].soochak.bizbandhan.com`. The protected operator management hosts are `mgmt.soochak.optiwari.duckdns.org` for local development and `mgmt.soochak.bizbandhan.com` for production. The customer's primary website origin is separate data used for Web Push configuration. A user's tenant scope is tied to one organization; multi-organization Membership is deferred. The current backend instead derives `req.origin` from the incoming request host, so the data model and authorization middleware must be adapted to distinguish tenant host from customer website origin.
 
-Organization registration is exposed at `PUT /api/v1/auth/organization`. It creates an organization record under the request origin and emits an in-process event to create the owner user, owner role, and initial permission grants. The response does not confirm that asynchronous provisioning finished. Expected-hostname validation/verification, registration recovery, and welcome email remain unfinished. The bootstrap flow must account for registration requests arriving through a platform host different from the organization's expected hostname.
+The planned public registration flow collects organization details, a canonical customer website origin, owner details, and an owner-chosen password. It creates the organization and an owner account that is blocked from tenant dashboard/API access while pending review. A platform operator reviews the request from the protected management host for the active environment. The operator can approve, request changes, or reject with a reason. Approval activates the tenant only after required owner/role/permission provisioning succeeds. Requested changes are sent to the submitted contact email; the owner can sign in to a restricted registration area to edit and resubmit, but cannot access the tenant dashboard before approval. The system also sends status emails; the address is a contact channel, not a verified identity in this phase.
+
+Platform operators may also create organizations directly. This path skips applicant review and activates the tenant after owner and access-record provisioning succeeds. For these operator-created accounts, the operator supplies an initial password to the owner outside the system, and the owner must change it at first login. Secrets must not be included in logs, URLs, or documentation.
+
+Email verification, customer website/dashboard hostname ownership verification, custom dashboard domains, and payment collection for plans are later-stage work, not gates in the initial registration flow. Hosted SaaS uses a Soochak tenant subdomain initially. Self-hosted deployments remain a separate installation option and may use their own hostname; synchronized configuration and updates from the management portal are a later-stage capability.
 
 Roles are organization-scoped labels for grouping users. Permissions are explicit grants addressed to a user or a role (for example, `user:<id>` or `role:<id>`); the authorization policy must define how direct-user and role grants combine. Default role names and permission codes will be specified with the endpoint implementation. Organization `name` and `slug` are required; usage-limit fields remain experimental until limit types are decided.
 
-For self-hosted instances, the canonical host may be a dynamic DNS name such as `soochak.optiwari.duckdns.org`. It can resolve to a private LAN address and still support push when the browser accesses that hostname over valid HTTPS; the LAN test at `https://soochak.optiwari.duckdns.org` resolving to `192.168.0.145` has worked. A raw remote `http://<private-ip>` URL is not the supported push setup. Setup guidance should distinguish hostname resolution from HTTPS certificate provisioning. Domain verification is planned, but the exact DNS challenge (A-record routing check versus a unique TXT ownership challenge) remains to be finalized.
+For self-hosted instances, the dashboard/API host may be a dynamic DNS name such as `soochak.optiwari.duckdns.org`. It can resolve to a private LAN address and still support push when the browser accesses that hostname over valid HTTPS; the LAN test at `https://soochak.optiwari.duckdns.org` resolving to `192.168.0.145` has worked. A raw remote `http://<private-ip>` URL is not the supported push setup. Setup guidance should distinguish hostname resolution from HTTPS certificate provisioning. Formal hostname ownership verification is deferred from initial activation.
 
-The longer-term platform is planned to add a browser SDK, campaign scheduling, and durable asynchronous delivery. A standalone dashboard scaffold exists; NATS JetStream and separate workers are future architecture components, not required services in the initial Compose topology.
+The longer-term platform is planned to add a browser SDK, campaign scheduling, and durable asynchronous delivery. NATS JetStream and separate workers are future architecture components, not required services in the initial Compose topology.
 
 The planned end-to-end notification flow is:
 
@@ -165,7 +170,7 @@ This file is served from Soochak's own origin for prototype testing. A Service W
 
 ## Project Structure
 
-The repository contains the Compose services and a standalone dashboard. The gateway configuration scaffold is present; its project-specific route map will evolve with the application. The dashboard is not yet a Compose service. Prototype checks are manual, so an automated test layout is not required yet.
+The repository contains Compose services for the frontend dashboard, backend, database, and gateway. The gateway route map sends non-API paths to the frontend, with `/api...` routed to the backend. Prototype checks are manual, so an automated test layout is not required yet.
 
 ```text
 soochak/
@@ -181,7 +186,7 @@ soochak/
 │   │   ├── Dockerfile
 │   │   ├── package.json
 │   │   └── package-lock.json
-│   ├── frontend/           # React/Vite dashboard; run separately from Compose
+│   ├── frontend/           # React/Vite dashboard Compose service
 │   ├── gateway/
 │   │   ├── config/         # NGINX gateway configuration scaffold
 │   │   └── logs/
@@ -191,11 +196,11 @@ soochak/
 │       └── backup/
 ├── environment/
 │   └── backend.env         # local DB and port settings; do not commit secrets
-├── docker-compose.yml      # soochak gateway, backend, db
+├── docker-compose.yml      # soochak gateway, frontend, backend, db
 └── README.md
 ```
 
-The Compose service keys are `soochak` (gateway, named for the project so Proxy Manager can address it), `backend`, and `db` (MongoDB hostname used by the backend). The gateway connects to the pre-created external `publicweb` network and the stack's private network; backend and database connect only to the private network. MongoDB data, config, and backup directories are bind-mounted under `codebase/db/`. The standalone dashboard is run separately; Compose integration and automated test layout are deferred.
+The Compose service keys are `soochak` (gateway, named for the project so Proxy Manager can address it), `frontend`, `backend`, and `db` (MongoDB hostname used by the backend). The gateway connects to the pre-created external `publicweb` network and the stack's private network; frontend, backend, and database connect only to the private network. MongoDB data, config, and backup directories are bind-mounted under `codebase/db/`.
 
 ## Development Roadmap
 
@@ -204,12 +209,15 @@ The Compose service keys are `soochak` (gateway, named for the project so Proxy 
 Prototype behavior will be checked manually using internal accounts and test devices. Automated unit, integration, and end-to-end tests, along with CI test checks, are deferred until after the prototype. Keep a repeatable manual checklist for permission outcomes, subscription lifecycle, notification receipt, click behavior, and failure cases.
 
 ### Phase 0 — Organization Bootstrap
-- [ ] Implement `PUT /api/v1/auth/organization` to create an organization, its owner, default roles, and default permissions.
-- [ ] Require and canonicalize an expected hostname; reject a hostname already assigned to another organization.
-- [ ] Verify the organization hostname before activating organization-scoped operations; choose the DNS challenge method.
-- [ ] Add login and organization-origin authorization; defer Membership unless users need multiple organizations.
+- [ ] Implement public self-service registration that creates a pending organization and owner account without tenant access, then requires protected platform-operator approval.
+- [ ] Add approve, request-changes, and reject-with-reason review outcomes, status emails, and a restricted registration area for applicants asked to make changes.
+- [ ] Gate tenant activation on both operator approval and successful owner/role/permission provisioning.
+- [ ] Add direct operator organization creation without applicant review; require successful provisioning and force initial password change at first login.
+- [ ] Store the customer website origin separately from the hosted tenant dashboard/API hostname; assign a Soochak tenant subdomain by default.
+- [ ] Add tenant-host authorization and login; defer Membership unless users need multiple organizations.
+- [ ] Add the protected operator portal at `mgmt.soochak.optiwari.duckdns.org` locally and `mgmt.soochak.bizbandhan.com` in production.
 - [ ] Add a first-run setup page for self-hosted deployments.
-- [ ] Send the welcome note after successful creation without returning credentials.
+- [ ] Defer email verification, website/dashboard hostname ownership verification, custom dashboard domains, and plan payment until a later phase.
 
 ### Phase 1 — Browser Integration
 - [ ] Implement the initial JavaScript SDK.
@@ -232,7 +240,7 @@ Prototype behavior will be checked manually using internal accounts and test dev
 - [ ] Implement resource registration under an organization; formal verification of each customer website resource remains deferred.
 - [ ] Build the campaign composer and campaign history.
 - [ ] Add scheduling and basic analytics.
-- [ ] Enforce organization-origin authorization and implement usage limits.
+- [ ] Enforce tenant-organization authorization and implement usage limits.
 
 ### Phase 4 — Pilot Readiness
 - [ ] Verify the integration in the pilot browser and operating-system combinations selected for customer use.
@@ -258,10 +266,19 @@ Soochak is under active development. Setup instructions will be finalized as the
 
 Soochak has two planned environments and no staging environment:
 
-| Environment | Origin |
+| Environment | Platform base origin |
 |---|---|
 | Development | `https://soochak.optiwari.duckdns.org` (tested on LAN with the hostname resolving to `192.168.0.145`) |
 | Live | `https://soochak.bizbandhan.com` |
+
+These are platform environment base origins. Routing policy:
+
+| Environment | Management host | Tenant dashboard/API host |
+|---|---|---|
+| Local development | `mgmt.soochak.optiwari.duckdns.org` | `[tenant].soochak.optiwari.duckdns.org` |
+| Production | `mgmt.soochak.bizbandhan.com` | `[tenant].soochak.bizbandhan.com` |
+
+`[tenant]` is the tenant's assigned subdomain label. The customer website origin is a separate setting and is not used as the dashboard/API host.
 
 The development hostname is covered by the available `*.optiwari.duckdns.org` TLS certificate. The live hostname is outside that wildcard domain and must have a valid certificate covering `soochak.bizbandhan.com` before it serves browser integrations.
 
@@ -275,7 +292,7 @@ The local `environment/backend.env` file currently supplies `DB` and `PORT` to t
 
 ### Prototype Accounts and Resource Access
 
-The planned onboarding flow creates an organization and its first owner account together. One organization maps to one canonical host; users, roles, permissions, resources, and subscribers are scoped by that host. A separate Membership model is deferred because a user belongs to one organization in the current model. Roles group users; permissions are explicit user- or role-targeted grants. Every management API must enforce both the request's organization origin and the caller's authorization.
+The planned onboarding flow creates an organization and its first owner account together. Hosted organizations use a tenant-specific Soochak dashboard/API hostname; the customer's canonical website origin is stored separately for Web Push setup. Users, roles, permissions, resources, and subscribers are scoped to the tenant organization. A separate Membership model is deferred because a user belongs to one organization in the current model. Roles group users; permissions are explicit user- or role-targeted grants. Every management API must enforce tenant scope and the caller's authorization.
 
 The initial data model is:
 
@@ -284,32 +301,33 @@ Organization
   id
   name (required)
   slug (required)
-  origin (required, unique canonical hostname)
+  tenantHost (required, unique hosted dashboard/API hostname)
+  websiteOrigin (required, canonical customer website origin; ownership checks deferred)
   limits (experimental; structure TBD)
 
 User
   id
-  origin (organization tenancy key)
+  tenantHost (tenant dashboard/API scope)
   username/email
   password (secure hash only; never plaintext)
   role (organization role reference/identifier)
 
 Role
   id
-  origin
+  tenantHost
   name
   description
 
 Permission
   id
-  origin
+  tenantHost
   authorization (user or role principal)
   resource
   actions
 
 Resource
   id (site/resource ID generated by Soochak)
-  origin (organization tenancy key)
+  tenantHost (tenant organization scope)
   createdBy (user ID)
   name (optional label)
   siteUrl
@@ -333,21 +351,23 @@ Subscriber
   email (optional)
 ```
 
+The current backend uses `origin` for host-based scoping; migrating to explicit tenant-host fields is part of implementing the target hosted SaaS model.
+
 Subscriber records belong to a resource and should be uniquely identified by their push endpoint within that resource. Re-registering an endpoint updates its existing subscription record. The browser SDK may use a public resource key to identify the resource; browser-delivered code cannot keep a secret API key. Any server-to-server secret must be handled separately and stored as a hash.
 
 ### Prototype Subscriber Data and Consent
 
-The prototype is for internal users and devices managed by the project team; organization onboarding is planned, but open public signup is not enabled by this scope. The browser's native notification permission prompt is still required, and the SDK requests permission only following an explicit user action. Prototype opt-in UI copy may be placeholder text. Notifications should use test content and internal test recipients.
+The running prototype is for internal users and devices managed by the project team. The target product includes public self-service registration with operator review, but this flow is not implemented yet. The browser's native notification permission prompt is still required, and the SDK requests permission only following an explicit user action. Prototype opt-in UI copy may be placeholder text. Notifications should use test content and internal test recipients.
 
 Subscriber `name` and `email` fields are part of the planned schema for future personalization, but the prototype will not collect or use them. Delete a subscriber record immediately when the user unsubscribes. Also delete it when a push send receives a definitive expired/unregistered endpoint response (such as HTTP 404 or 410). Do not delete records for transient delivery errors such as timeouts or provider outages.
 
 VAPID keys are shared by resources within an environment: development and live each use their own key pair. Each resource stores its VAPID public key in the database and supplies it to the SDK. Store each environment's shared VAPID key pair in an environment-level database record, with the private key encrypted using authenticated encryption (for example, AES-GCM). Decrypt it in the backend only when needed for signing push requests. Keep the encryption key separate from the database in backend secret configuration, never send either private key or encryption key to browsers, and never log plaintext key material. The process for rotating VAPID keys remains to be decided.
 
-Organization registration currently creates an organization record and emits an in-process event to provision the owner and initial role/permission grants. Expected-hostname verification is not implemented and the DNS challenge method remains to be finalized. This is distinct from verifying each customer website resource: resource setup and SDK/Service Worker integration are expected to be performed by the organization configuring that website, and formal per-resource ownership verification remains deferred. Installing a Service Worker by itself is not a backend-verified ownership check.
+The current organization registration endpoint creates an organization record and emits an in-process event to provision the owner and initial role/permission grants. The target public registration flow adds pending-review and locked-owner states, operator decisions, status emails, and activation only after approval and successful provisioning; these are not implemented yet. The initial hosted SaaS target uses a Soochak tenant subdomain, separate from the customer's website origin. Email and hostname ownership verification, payment collection, and custom dashboard domains are deferred. This is distinct from verifying each customer website resource: resource setup and SDK/Service Worker integration are expected to be performed by the organization configuring that website, and formal per-resource ownership verification remains deferred. Installing a Service Worker by itself is not a backend-verified ownership check.
 
-### Prototype Scope and Deferred Production Work
+### Current Prototype Scope and Target Registration
 
-The decisions above define an internal prototype for project-team organizations and test devices. Organization registration is partially implemented; login and expected-hostname verification remain unfinished. Open public signup, formal per-resource website ownership verification, a staging environment, and collection/use of subscriber names and email addresses remain out of scope. Browser notification permission and explicit opt-in remain required. These assumptions must be revisited before accepting external customer traffic.
+The running implementation remains an internal prototype for project-team organizations and test devices. The target product includes public self-service signup with platform-operator approval and a separate direct operator-created organization path; these flows are not yet implemented. Login and authorization remain unfinished. Formal customer website/dashboard hostname ownership verification, email verification, plan payments, custom dashboard domains, formal per-resource website ownership verification, a staging environment, and collection/use of subscriber names and email addresses remain deferred. Browser notification permission and explicit opt-in remain required.
 
 Production readiness work remains outside the prototype decision scope and is tracked for later planning: public onboarding and abuse controls, formal site verification, privacy and consent requirements for external subscribers, VAPID key rotation, backup/restore and operational monitoring, load validation, and customer deployment/onboarding procedures. No VAPID rotation procedure has been selected yet.
 
@@ -367,7 +387,7 @@ The `publicweb` Docker network must already exist. Use `BUILD_TARGET=production`
 
 Soochak is intended to follow these principles:
 
-- Enforce organization-origin scoping and caller permission checks for resources and subscriber data.
+- Enforce tenant-organization scoping and caller permission checks for resources and subscriber data.
 - Store only a secure hash in the `password` field; never store plaintext passwords.
 - Treat browser SDK resource keys as public identifiers, not secrets.
 - Use valid HTTPS for both development and live browser integrations.
@@ -397,12 +417,14 @@ Web Push provider acceptance does not guarantee that a notification was displaye
 
 **Product tagline:** The right message, at the right moment.
 
-Proposed product hostnames:
+Product hostnames:
 
 - `soochak.bizbandhan.com` — Product website.
-- `app.soochak.bizbandhan.com` — Management dashboard.
-- `api.soochak.bizbandhan.com` — REST API.
+- `mgmt.soochak.bizbandhan.com` — Production platform-operator management portal.
+- `[tenant].soochak.bizbandhan.com` — Production tenant dashboard and API host.
 - `cdn.soochak.bizbandhan.com` — SDK and static assets.
+
+Local development equivalents use `mgmt.soochak.optiwari.duckdns.org` and `[tenant].soochak.optiwari.duckdns.org`.
 
 These hostnames are proposed and require DNS configuration before deployment.
 

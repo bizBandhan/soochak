@@ -131,7 +131,8 @@ export const RegisterOrgPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Honest Status Banner regarding Hostname Verification */}
+      {/* 
+      Honest Status Banner regarding Hostname Verification 
       <div className="mb-6 p-3.5 rounded-lg border border-amber-900/50 bg-amber-950/30 text-xs text-amber-200/90 flex items-start gap-3">
         <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
         <div className="space-y-1">
@@ -143,6 +144,7 @@ export const RegisterOrgPage: React.FC = () => {
           </p>
         </div>
       </div>
+      */}
 
       {provisioningResult ? (
         /* Honest Pending Provisioning Screen */

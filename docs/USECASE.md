@@ -1,11 +1,12 @@
 # Use Cases
 
 **Product:** Soochak by BizBandhan  
-**Status:** Draft; system behavior is planned. Updated 2026-10-29. A standalone dashboard scaffold exists; integration states are tracked in `docs/FRONTEND.md`.
+**Status:** Draft; system behavior is planned. Updated 2026-10-30. A standalone dashboard scaffold exists; integration states are tracked in `docs/FRONTEND.md`.
 
 ## Actors
 
-- **Organization owner:** registers an organization and manages its users, roles, permissions, and resources.
+- **Organization owner:** submits an organization for review or receives access to an operator-created organization, then manages its users, roles, permissions, and resources.
+- **Platform operator:** reviews self-service organization registrations or creates organizations directly using the protected management portal.
 - **Organization user:** works under one organization hostname and uses assigned roles/direct permissions.
 - **Website developer:** installs SDK and integrates the Service Worker.
 - **Campaign operator:** prepares and monitors messages.
@@ -13,21 +14,38 @@
 - **Soochak services:** gateway, API, and database for the prototype; scheduler, queue, delivery worker, and click handler are planned components.
 - **Browser push service:** accepts Web Push requests and routes them to browsers.
 
-## UC-00: Register an Organization
+## UC-00: Submit and review a self-service organization
 
-**Goal:** Create an organization and its first owner account, scoped to a unique hostname.  
-**Preconditions:** The hostname is available and suitable for the deployment's host-based tenancy model.  
-**Trigger:** Visitor submits the organization registration form to `PUT /api/v1/auth/organization`.
+**Goal:** Create an organization and its first owner account, then activate tenant access only after operator approval and successful provisioning.
+**Preconditions:** The hosted SaaS signup page is available. The customer website origin is collected separately from the Soochak dashboard/API tenant hostname.
+**Trigger:** Prospective owner submits the public organization registration form.
 
-1. Visitor submits required organization name, slug, expected hostname, and owner details (username, name, sex, date of birth, email, optional phone/timezone, and password).
-2. API canonicalizes the hostname and rejects it if already assigned.
-3. API temporarily uses the expected hostname as the request origin for organization-scoped writes, even if the registration request arrived via a shared platform host.
-4. API creates the organization and owner, seeds default roles and permissions, and assigns the owner role.
-5. Organization remains pending until the configured DNS verification succeeds.
-6. After activation, the system sends a welcome note. The response excludes the submitted password and other secrets.
+1. Owner submits organization name/slug, canonical customer website origin, owner details, contact email, and an owner-chosen password.
+2. System creates a pending-review organization and an owner account that is locked out of tenant dashboard/API access; it hashes the password and starts owner/role/permission provisioning.
+3. System reports a pending state and emails status updates to the submitted contact address. The address is not treated as verified identity.
+4. Platform operator reviews the request from the protected management portal (`mgmt.soochak.optiwari.duckdns.org` locally, `mgmt.soochak.bizbandhan.com` in production).
+5. On approval, the system activates tenant access only after required provisioning succeeds and assigns a tenant host (`[tenant].soochak.optiwari.duckdns.org` locally, `[tenant].soochak.bizbandhan.com` in production).
+6. On request-changes, the system emails the reason; owner signs in with the chosen password to a restricted registration area, edits the request, and resubmits. This does not grant tenant access.
+7. On rejection, the system emails the reason; owner must submit a new registration.
+8. The response and email never expose the submitted password or password hash.
 
-**Alternate flows:** Invalid fields return field-level errors; duplicate hostnames are rejected; DNS propagation delay leaves verification retryable; welcome-message failure does not undo the created organization. The exact DNS verification method (A-record routing check, TXT ownership proof, or both) remains open.  
-**Postconditions:** An active organization, owner, default roles, and permissions exist under one canonical hostname, or the caller receives a safe actionable error.
+**Alternate flows:** Invalid organization/owner data returns actionable field errors. Provisioning failure leaves the organization inactive and visible for operator recovery. Status-email delivery failure must not activate a tenant; retry/notification recovery behavior remains to be defined. Email ownership verification, customer website/dashboard hostname verification, custom dashboard domains, and plan payments are deferred.
+**Postconditions:** The organization is active only after operator approval and successful provisioning, or remains pending/changes-requested/rejected with a visible status and safe next step.
+
+## UC-00b: Create an organization directly as a platform operator
+
+**Goal:** Provision an organization without the applicant-review step.
+**Preconditions:** Operator is authenticated and authorized in the protected management portal.
+**Trigger:** Operator submits organization, customer website origin, and owner details.
+
+1. Operator enters organization and owner details, including an initial owner password.
+2. System creates the organization and starts owner/role/permission provisioning without applicant review.
+3. System keeps the tenant inactive until provisioning succeeds, then assigns its Soochak tenant host (`[tenant].soochak.optiwari.duckdns.org` locally, `[tenant].soochak.bizbandhan.com` in production) and activates it.
+4. Operator communicates the initial password to the owner outside the system.
+5. Owner changes the initial password at first login.
+
+**Alternate flows:** Provisioning failure leaves the organization inactive and exposes recovery actions to the operator. Credentials are never logged or placed in URLs or documentation.
+**Postconditions:** Tenant is active after successful provisioning, or inactive with an actionable operator-visible failure state.
 
 ## UC-00a: Complete First-Run Self-Hosted Setup
 
@@ -50,13 +68,13 @@
 **Trigger:** User selects “Add resource.”
 
 1. User submits a resource name and site origin.
-2. System validates the site origin and creates a resource record scoped to the active organization origin.
+2. System validates the site origin and creates a resource record scoped to the active tenant organization.
 3. System provides a resource identifier, allowed origins, public configuration, subscriber limit, and VAPID public key.
 4. Developer installs the SDK and follows the documented integration pattern for the site's existing worker.
 5. Developer verifies configuration with a test subscription.
 
 **Alternate flows:** Invalid origin or missing configuration returns field-level errors. No separate domain ownership challenge is performed in the prototype. Unsupported worker arrangements provide diagnostic guidance; the system does not replace the site's worker automatically.  
-**Postconditions:** Resource is associated with its organization and its subscribers are isolated from other organization origins.
+**Postconditions:** Resource is associated with its organization and its subscribers are isolated from other tenant organizations.
 
 ## UC-02: Subscribe a Visitor
 

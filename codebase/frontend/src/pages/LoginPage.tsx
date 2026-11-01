@@ -7,17 +7,24 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Bell, Lock, User, AlertCircle, Clock, ShieldCheck, ArrowRight } from 'lucide-react';
+import { useForm } from 'react-hook-form';
 import { useAuth } from '../context/AuthContext';
-import { DEFAULT_API_BASE } from '../services/apiClient';
+
+interface LoginFormValues {
+  username: string;
+  password: string;
+}
 
 export const LoginPage: React.FC = () => {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  const [username, setUsername] = useState('optiwari');
-  const [password, setPassword] = useState('SecurePass2026!');
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormValues>();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [rateLimitSeconds, setRateLimitSeconds] = useState<number>(0);
 
   useEffect(() => {
@@ -36,21 +43,10 @@ export const LoginPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [rateLimitSeconds]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async ({ username, password }: LoginFormValues) => {
     if (rateLimitSeconds > 0) return;
 
     setErrorMsg(null);
-    if (!username.trim()) {
-      setErrorMsg('Please enter your username or email address.');
-      return;
-    }
-    if (!password) {
-      setErrorMsg('Please enter your account password.');
-      return;
-    }
-
-    setIsSubmitting(true);
     try {
       await login({ user: username.trim(), password });
       navigate('/');
@@ -61,8 +57,6 @@ export const LoginPage: React.FC = () => {
       } else {
         setErrorMsg(err.message || 'Authentication failed. Please verify credentials or server connectivity.');
       }
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -78,7 +72,7 @@ export const LoginPage: React.FC = () => {
           Sign in to Soochak
         </h2>
         <p className="mt-1 text-center text-xs text-slate-400">
-          Developer-first Web Push management console for BizBandhan organizations
+          Web Push management console
         </p>
       </div>
 
@@ -108,31 +102,38 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-4" onSubmit={handleSubmit(handleLogin)} noValidate>
             <div>
               <label
                 htmlFor="username"
                 className="block text-xs font-medium text-slate-300"
               >
-                Username or Email
+                Username
               </label>
               <div className="mt-1.5 relative rounded-md shadow-xs">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                   <User className="h-4 w-4" />
                 </div>
                 <input
+                  {...register('username', {
+                    required: 'Please enter your username.',
+                    validate: (value) => value.trim().length > 0 || 'Please enter your username.',
+                  })}
                   id="username"
-                  name="username"
                   type="text"
                   autoComplete="username"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
                   disabled={isSubmitting || rateLimitSeconds > 0}
+                  aria-invalid={!!errors.username}
+                  aria-describedby={errors.username ? 'username-error' : undefined}
                   className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition"
                   placeholder="e.g. optiwari"
                 />
               </div>
+              {errors.username && (
+                <p id="username-error" role="alert" className="mt-1 text-[11px] text-red-400">
+                  {errors.username.message}
+                </p>
+              )}
             </div>
 
             <div>
@@ -150,18 +151,22 @@ export const LoginPage: React.FC = () => {
                   <Lock className="h-4 w-4" />
                 </div>
                 <input
+                  {...register('password', { required: 'Please enter your account password.' })}
                   id="password"
-                  name="password"
                   type="password"
                   autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   disabled={isSubmitting || rateLimitSeconds > 0}
+                  aria-invalid={!!errors.password}
+                  aria-describedby={errors.password ? 'password-error' : undefined}
                   className="block w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition"
                   placeholder="••••••••••••"
                 />
               </div>
+              {errors.password && (
+                <p id="password-error" role="alert" className="mt-1 text-[11px] text-red-400">
+                  {errors.password.message}
+                </p>
+              )}
             </div>
 
             <div className="pt-2">
@@ -173,7 +178,7 @@ export const LoginPage: React.FC = () => {
                 {isSubmitting ? (
                   <>
                     <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Validating credentials (PUT /auth)...</span>
+                    <span>Authenticating...</span>
                   </>
                 ) : (
                   <>
@@ -185,33 +190,13 @@ export const LoginPage: React.FC = () => {
             </div>
           </form>
 
-          {/* Quick Credential Test Hint */}
-          <div className="mt-6 pt-4 border-t border-slate-800 text-[11px] text-slate-400 space-y-1.5">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="font-semibold text-slate-300">Operator Sandbox Login:</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername('optiwari');
-                  setPassword('SecurePass2026!');
-                }}
-                className="text-cyan-400 hover:underline"
-              >
-                Fill test credentials
-              </button>
-            </div>
-            <p className="text-[10px] text-slate-500">
-              API Base: <code className="font-mono text-cyan-400">{DEFAULT_API_BASE}</code>
-            </p>
-          </div>
-
           <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between text-xs">
-            <span className="text-slate-400">New organization?</span>
+            <span className="text-slate-400">Don't have soochak?</span>
             <Link
-              to="/register-org"
+              to="/register"
               className="font-medium text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition"
             >
-              <span>Register Organization</span>
+              <span>Register</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
