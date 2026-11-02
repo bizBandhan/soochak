@@ -33,3 +33,29 @@
     background: #334155;
   }
 }
+
+/* intl-tel-input dark theme (library defaults to a white dropdown) */
+:root {
+  --iti-country-selector-bg: #0f172a;
+  --iti-border-color: #334155;
+  --iti-hover-color: rgba(34, 211, 238, 0.12);
+  --iti-icon-color: #94a3b8;
+}
+
+.iti {
+  width: 100%;
+}
+
+.iti__country-selector {
+  color: #e2e8f0;
+}
+
+.iti__search-input {
+  background-color: #020617;
+  color: #e2e8f0;
+}
+
+.iti__dial-code,
+.iti__selected-dial-code {
+  color: #94a3b8;
+}

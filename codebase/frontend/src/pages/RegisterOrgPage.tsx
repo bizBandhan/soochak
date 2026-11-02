@@ -4,7 +4,8 @@
  * Soochak by BizBandhan — Organization Registration & Setup
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Building2,
@@ -20,31 +21,71 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { OrganizationRegistrationPayload } from '../types';
+import { PhoneInput } from '../components/common/PhoneInput';
+import { PLANS, getPlan, type PlanId } from '../constants/plans';
+
+const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+const TIMEZONES: string[] = (() => {
+  const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+  return zones.includes(DEVICE_TIMEZONE) ? zones : [DEVICE_TIMEZONE, ...zones];
+})();
+
+interface RegisterFormValues {
+  orgName: string;
+  slug: string;
+  plan: PlanId;
+  ownerUsername: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  sex: 'male' | 'female' | 'other';
+  dob: string;
+  phone: string;
+  timezone: string;
+  password: string;
+  confirmPassword: string;
+}
+
+const FieldError: React.FC<{ message?: string }> = ({ message }) =>
+  message ? (
+    <p role="alert" className="mt-1 text-[11px] text-red-400">
+      {message}
+    </p>
+  ) : null;
 
 export const RegisterOrgPage: React.FC = () => {
   const { registerOrganization } = useAuth();
   const navigate = useNavigate();
 
-  // Form State
-  const [orgName, setOrgName] = useState('Acme Technologies');
-  const [slug, setSlug] = useState('acme-tech');
-  const [maxSubscribers, setMaxSubscribers] = useState(25000);
-  const [maxNotificationsPerDay, setMaxNotificationsPerDay] = useState(2000);
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    getValues,
+    control,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterFormValues>({
+    defaultValues: {
+      orgName: '',
+      slug: '',
+      plan: 'free',
+      ownerUsername: '',
+      firstName: '',
+      lastName: '',
+      email: '',
+      sex: undefined,
+      dob: '',
+      phone: '',
+      timezone: DEVICE_TIMEZONE,
+      password: '',
+      confirmPassword: '',
+    },
+  });
 
-  // Owner Profile
-  const [ownerUsername, setOwnerUsername] = useState('acmeowner');
-  const [firstName, setFirstName] = useState('Alex');
-  const [lastName, setLastName] = useState('Vance');
-  const [email, setEmail] = useState('alex.vance@acme.example.com');
-  const [sex, setSex] = useState<'male' | 'female' | 'other'>('male');
-  const [dob, setDob] = useState('1994-08-20');
-  const [phone, setPhone] = useState('+1 555-019-2831');
-  const [timezone, setTimezone] = useState('America/New_York');
-  const [password, setPassword] = useState('SecureAcme2026!');
-  const [confirmPassword, setConfirmPassword] = useState('SecureAcme2026!');
+  const selectedPlan = getPlan(watch('plan'));
+  const phoneValidRef = useRef(true);
 
-  // Submission & Pending Provisioning State
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [provisioningResult, setProvisioningResult] = useState<{
     success: boolean;
@@ -54,52 +95,36 @@ export const RegisterOrgPage: React.FC = () => {
   } | null>(null);
 
   const handleNameChange = (val: string) => {
-    setOrgName(val);
     const autoSlug = val
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
-    setSlug(autoSlug);
+    setValue('slug', autoSlug, { shouldValidate: true });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (values: RegisterFormValues) => {
     setErrorMessage(null);
 
-    if (!orgName.trim() || !slug.trim()) {
-      setErrorMessage('Organization name and canonical slug are required.');
-      return;
-    }
-    if (password.length < 8) {
-      setErrorMessage('Owner password must be at least 8 characters long.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setErrorMessage('Password and confirmation do not match.');
-      return;
-    }
-
-    setIsSubmitting(true);
     const payload: OrganizationRegistrationPayload = {
-      name: orgName.trim(),
-      slug: slug.trim(),
+      name: values.orgName.trim(),
+      slug: values.slug.trim(),
       limits: {
-        maxSubscribers: Number(maxSubscribers),
-        maxNotificationsPerDay: Number(maxNotificationsPerDay),
+        maxSubscribers: getPlan(values.plan).maxSubscribers,
+        maxNotificationsPerDay: getPlan(values.plan).maxNotificationsPerDay,
       },
       owner: {
-        user: ownerUsername.trim(),
+        user: values.ownerUsername.trim(),
         name: {
-          first: firstName.trim(),
-          last: lastName.trim(),
+          first: values.firstName.trim(),
+          last: values.lastName.trim(),
         },
-        sex,
-        dob,
-        email: email.trim(),
-        phone: phone.trim() || undefined,
-        timezone,
-        password, // Sent securely in request payload; never saved or displayed in frontend
+        sex: values.sex,
+        dob: values.dob,
+        email: values.email.trim(),
+        phone: values.phone.trim() || undefined,
+        timezone: values.timezone,
+        password: values.password, // Sent securely in request payload; never saved or displayed in frontend
       },
     };
 
@@ -113,8 +138,6 @@ export const RegisterOrgPage: React.FC = () => {
       });
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to register organization.');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -155,7 +178,7 @@ export const RegisterOrgPage: React.FC = () => {
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">
-                Organization Record Created: {orgName}
+                Organization Record Created: {getValues('orgName')}
               </h2>
               <p className="text-xs text-slate-400 font-mono">
                 Organization ID: {provisioningResult.orgId} · Slug: {provisioningResult.slug}
@@ -192,7 +215,7 @@ export const RegisterOrgPage: React.FC = () => {
         </div>
       ) : (
         /* Registration Form */
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
           {errorMessage && (
             <div className="p-3 rounded-lg border border-red-800/60 bg-red-950/40 text-xs text-red-300 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
@@ -214,12 +237,11 @@ export const RegisterOrgPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  required
-                  value={orgName}
-                  onChange={(e) => handleNameChange(e.target.value)}
+                  {...register('orgName', { required: 'Organization name is required.', validate: (v) => v.trim().length > 0 || 'Organization name is required.', onChange: (e) => handleNameChange(e.target.value) })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                   placeholder="e.g. Acme Technologies"
                 />
+                <FieldError message={errors.orgName?.message} />
               </div>
 
               <div>
@@ -228,40 +250,34 @@ export const RegisterOrgPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  required
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
+                  {...register('slug', { required: 'Slug is required.' })}
                   className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-cyan-300 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                   placeholder="e.g. acme-tech"
                 />
+                <FieldError message={errors.slug?.message} />
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-xs font-medium text-slate-300">
-                  Max Push Subscribers
+                  Plan
                 </label>
-                <input
-                  type="number"
-                  min="100"
-                  max="1000000"
-                  value={maxSubscribers}
-                  onChange={(e) => setMaxSubscribers(Number(e.target.value))}
-                  className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-300">
-                  Max Notifications / Day
-                </label>
-                <input
-                  type="number"
-                  min="10"
-                  max="100000"
-                  value={maxNotificationsPerDay}
-                  onChange={(e) => setMaxNotificationsPerDay(Number(e.target.value))}
-                  className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
-                />
+                <select
+                  {...register('plan')}
+                  className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
+                >
+                  {PLANS.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {selectedPlan.label} plan includes up to{' '}
+                  <span className="font-mono text-cyan-300">{selectedPlan.maxSubscribers.toLocaleString()}</span> push
+                  subscribers and{' '}
+                  <span className="font-mono text-cyan-300">{selectedPlan.maxNotificationsPerDay.toLocaleString()}</span>{' '}
+                  notifications per day.
+                </p>
               </div>
             </div>
           </div>
@@ -280,11 +296,10 @@ export const RegisterOrgPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  required
-                  value={ownerUsername}
-                  onChange={(e) => setOwnerUsername(e.target.value)}
+                  {...register('ownerUsername', { required: 'Owner username is required.' })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                 />
+                <FieldError message={errors.ownerUsername?.message} />
               </div>
 
               <div>
@@ -293,11 +308,10 @@ export const RegisterOrgPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  required
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  {...register('firstName', { required: 'First name is required.' })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                 />
+                <FieldError message={errors.firstName?.message} />
               </div>
 
               <div>
@@ -306,11 +320,10 @@ export const RegisterOrgPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  required
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  {...register('lastName', { required: 'Last name is required.' })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                 />
+                <FieldError message={errors.lastName?.message} />
               </div>
 
               <div>
@@ -319,11 +332,10 @@ export const RegisterOrgPage: React.FC = () => {
                 </label>
                 <input
                   type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  {...register('email', { required: 'Email address is required.', pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email address.' } })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                 />
+                <FieldError message={errors.email?.message} />
               </div>
 
               <div>
@@ -331,8 +343,7 @@ export const RegisterOrgPage: React.FC = () => {
                   Gender / Sex *
                 </label>
                 <select
-                  value={sex}
-                  onChange={(e) => setSex(e.target.value as any)}
+                  {...register('sex', { required: 'Select a value.' })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                 >
                   <option value="male">Male</option>
@@ -347,36 +358,49 @@ export const RegisterOrgPage: React.FC = () => {
                 </label>
                 <input
                   type="date"
-                  required
-                  value={dob}
-                  onChange={(e) => setDob(e.target.value)}
+                  {...register('dob', { required: 'Date of birth is required.' })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                 />
+                <FieldError message={errors.dob?.message} />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-300">
                   Phone (Optional)
                 </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
+                <Controller
+                  name="phone"
+                  control={control}
+                  rules={{ validate: (v) => !v || phoneValidRef.current || 'Enter a valid phone number for the selected country.' }}
+                  render={({ field }) => (
+                    <PhoneInput
+                      value={field.value}
+                      onChange={(val, isValid) => {
+                        phoneValidRef.current = isValid;
+                        field.onChange(val);
+                      }}
+                      onBlur={field.onBlur}
+                      className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
+                    />
+                  )}
                 />
+                <FieldError message={errors.phone?.message} />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-300">
                   Timezone
                 </label>
-                <input
-                  type="text"
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
+                <select
+                  {...register('timezone')}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
-                  placeholder="e.g. America/New_York or Asia/Kolkata"
-                />
+                >
+                  {TIMEZONES.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -387,12 +411,11 @@ export const RegisterOrgPage: React.FC = () => {
                 </label>
                 <input
                   type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  {...register('password', { required: 'Owner password is required.', minLength: { value: 8, message: 'Owner password must be at least 8 characters long.' } })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                   placeholder="min. 8 characters"
                 />
+                <FieldError message={errors.password?.message} />
               </div>
 
               <div>
@@ -401,12 +424,11 @@ export const RegisterOrgPage: React.FC = () => {
                 </label>
                 <input
                   type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  {...register('confirmPassword', { required: 'Please confirm the password.', validate: (v) => v === getValues('password') || 'Password and confirmation do not match.' })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                   placeholder="re-enter password"
                 />
+                <FieldError message={errors.confirmPassword?.message} />
               </div>
             </div>
           </div>

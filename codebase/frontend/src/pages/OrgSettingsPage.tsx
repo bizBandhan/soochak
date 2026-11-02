@@ -5,6 +5,7 @@
  */
 
 import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import {
   Settings,
   Building2,
@@ -21,33 +22,55 @@ import { ConfirmModal } from '../components/common/ConfirmModal';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { organizationService } from '../services/apiAdapters';
 
+interface OrgSettingsFormValues {
+  name: string;
+  slug: string;
+  canonicalOrigin: string;
+  maxSubscribers: number;
+  maxNotificationsPerDay: number;
+}
+
+const FieldError: React.FC<{ message?: string }> = ({ message }) =>
+  message ? (
+    <p role="alert" className="mt-1 text-[11px] text-red-400">
+      {message}
+    </p>
+  ) : null;
+
 export const OrgSettingsPage: React.FC = () => {
   const { organization, updateOrg } = useAuth();
 
-  const [name, setName] = useState(organization?.name || 'BizBandhan Technologies');
-  const [slug, setSlug] = useState(organization?.slug || 'bizbandhan-tech');
-  const [canonicalOrigin, setCanonicalOrigin] = useState(organization?.canonicalOrigin || 'https://bizbandhan.com');
-  const [maxSubscribers, setMaxSubscribers] = useState(organization?.limits?.maxSubscribers || 100000);
-  const [maxNotificationsPerDay, setMaxNotificationsPerDay] = useState(organization?.limits?.maxNotificationsPerDay || 5000);
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors, isSubmitting: isSaving },
+  } = useForm<OrgSettingsFormValues>({
+    defaultValues: {
+      name: organization?.name || 'BizBandhan Technologies',
+      slug: organization?.slug || 'bizbandhan-tech',
+      canonicalOrigin: organization?.canonicalOrigin || 'https://bizbandhan.com',
+      maxSubscribers: organization?.limits?.maxSubscribers || 100000,
+      maxNotificationsPerDay: organization?.limits?.maxNotificationsPerDay || 5000,
+    },
+  });
+  const canonicalOrigin = watch('canonicalOrigin');
 
-  const [isSaving, setIsSaving] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [show405DemoModal, setShow405DemoModal] = useState(false);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
+  const handleSave = async (values: OrgSettingsFormValues) => {
     setFeedbackMsg(null);
 
     try {
       await updateOrg({
-        name: name.trim(),
-        slug: slug.trim(),
-        canonicalOrigin: canonicalOrigin.trim(),
+        name: values.name.trim(),
+        slug: values.slug.trim(),
+        canonicalOrigin: values.canonicalOrigin.trim(),
         limits: {
-          maxSubscribers: Number(maxSubscribers),
-          maxNotificationsPerDay: Number(maxNotificationsPerDay),
+          maxSubscribers: Number(values.maxSubscribers),
+          maxNotificationsPerDay: Number(values.maxNotificationsPerDay),
         },
       });
       setFeedbackMsg({
@@ -59,8 +82,6 @@ export const OrgSettingsPage: React.FC = () => {
         type: 'error',
         text: err.message || 'Failed to update organization.',
       });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -121,7 +142,7 @@ export const OrgSettingsPage: React.FC = () => {
       </div>
 
       {/* Settings Form */}
-      <form onSubmit={handleSave} className="space-y-6">
+      <form onSubmit={handleSubmit(handleSave)} noValidate className="space-y-6">
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-6 space-y-4">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
             Organization Identity & Limits
@@ -132,33 +153,39 @@ export const OrgSettingsPage: React.FC = () => {
               <label className="block font-medium text-slate-300">Organization Name *</label>
               <input
                 type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                {...register('name', {
+                  required: 'Organization name is required.',
+                  validate: (v) => v.trim().length > 0 || 'Organization name is required.',
+                })}
                 className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
               />
+              <FieldError message={errors.name?.message} />
             </div>
 
             <div>
               <label className="block font-medium text-slate-300">Organization Slug *</label>
               <input
                 type="text"
-                required
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
+                {...register('slug', {
+                  required: 'Slug is required.',
+                  validate: (v) => v.trim().length > 0 || 'Slug is required.',
+                })}
                 className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-cyan-300 focus:ring-1 focus:ring-cyan-500"
               />
+              <FieldError message={errors.slug?.message} />
             </div>
 
             <div>
               <label className="block font-medium text-slate-300">Canonical Origin (FQDN) *</label>
               <input
                 type="url"
-                required
-                value={canonicalOrigin}
-                onChange={(e) => setCanonicalOrigin(e.target.value)}
+                {...register('canonicalOrigin', {
+                  required: 'Canonical origin is required.',
+                  pattern: { value: /^https?:\/\/\S+$/i, message: 'Enter a valid http(s) URL.' },
+                })}
                 className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-cyan-300 focus:ring-1 focus:ring-cyan-500"
               />
+              <FieldError message={errors.canonicalOrigin?.message} />
               <p className="mt-1 text-[10px] text-slate-500">
                 Primary origin identifying this tenant in authenticated request-origin scope.
               </p>
@@ -178,22 +205,26 @@ export const OrgSettingsPage: React.FC = () => {
               <label className="block font-medium text-slate-300">Maximum Subscribers</label>
               <input
                 type="number"
-                min="100"
-                value={maxSubscribers}
-                onChange={(e) => setMaxSubscribers(Number(e.target.value))}
+                {...register('maxSubscribers', {
+                  valueAsNumber: true,
+                  min: { value: 100, message: 'Minimum is 100.' },
+                })}
                 className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
               />
+              <FieldError message={errors.maxSubscribers?.message} />
             </div>
 
             <div>
               <label className="block font-medium text-slate-300">Max Notifications / Day</label>
               <input
                 type="number"
-                min="10"
-                value={maxNotificationsPerDay}
-                onChange={(e) => setMaxNotificationsPerDay(Number(e.target.value))}
+                {...register('maxNotificationsPerDay', {
+                  valueAsNumber: true,
+                  min: { value: 10, message: 'Minimum is 10.' },
+                })}
                 className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
               />
+              <FieldError message={errors.maxNotificationsPerDay?.message} />
             </div>
           </div>
 

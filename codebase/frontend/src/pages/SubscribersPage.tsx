@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
 import {
   Users,
   Search,
@@ -26,6 +27,16 @@ import { EndpointMask } from '../components/common/EndpointMask';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { StatusBadge } from '../components/common/StatusBadge';
 
+interface TestSubscriberFormValues {
+  endpoint: string;
+  tag: string;
+}
+
+const TEST_SUBSCRIBER_DEFAULTS: TestSubscriberFormValues = {
+  endpoint: '',
+  tag: 'product_updates',
+};
+
 export const SubscribersPage: React.FC = () => {
   const [subscribers, setSubscribers] = useState<PushSubscriber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,8 +49,12 @@ export const SubscribersPage: React.FC = () => {
 
   // New simulated test subscriber modal
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newEndpoint, setNewEndpoint] = useState('');
-  const [newTag, setNewTag] = useState('product_updates');
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<TestSubscriberFormValues>({ defaultValues: TEST_SUBSCRIBER_DEFAULTS });
 
   const loadSubscribers = async () => {
     setLoading(true);
@@ -83,23 +98,22 @@ export const SubscribersPage: React.FC = () => {
     }
   };
 
-  const handleRegisterTestSubscriber = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRegisterTestSubscriber = async (values: TestSubscriberFormValues) => {
     const created = await webPushService.createSubscriber({
       endpoint:
-        newEndpoint.trim() ||
+        values.endpoint.trim() ||
         `https://fcm.googleapis.com/fcm/send/test_${Date.now().toString(36)}_${Math.random().toString(36).substring(7)}`,
       keys: {
         p256dh: 'BNcDemoBrowserPublicKey_' + Math.random().toString(36).substring(7),
         auth: 'AuthKey_' + Math.random().toString(36).substring(7),
       },
-      tag: newTag.trim() || 'general',
+      tag: values.tag.trim() || 'general',
       origin: window.location.origin,
       userAgent: navigator.userAgent,
     });
     setSubscribers([created, ...subscribers]);
     setShowAddModal(false);
-    setNewEndpoint('');
+    reset({ ...TEST_SUBSCRIBER_DEFAULTS, tag: values.tag });
   };
 
   return (
@@ -295,28 +309,33 @@ export const SubscribersPage: React.FC = () => {
               Simulates a browser device calling <code className="text-cyan-300 font-mono">PUT /web-push/subscriber</code> with W3C PushSubscription credentials.
             </p>
 
-            <form onSubmit={handleRegisterTestSubscriber} className="space-y-3 text-xs">
+            <form onSubmit={handleSubmit(handleRegisterTestSubscriber)} noValidate className="space-y-3 text-xs">
               <div>
                 <label className="block font-medium text-slate-300">Push Endpoint (leave blank for auto-generated FCM URL)</label>
                 <input
                   type="text"
-                  value={newEndpoint}
-                  onChange={(e) => setNewEndpoint(e.target.value)}
+                  {...register('endpoint', {
+                    validate: (v) => !v.trim() || /^https:\/\/\S+$/i.test(v.trim()) || 'Endpoint must be an https URL.',
+                  })}
                   className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-cyan-300 focus:ring-1 focus:ring-cyan-500"
                   placeholder="https://fcm.googleapis.com/fcm/send/..."
                 />
+                {errors.endpoint && (
+                  <p role="alert" className="mt-1 text-[11px] text-red-400">{errors.endpoint.message}</p>
+                )}
               </div>
 
               <div>
                 <label className="block font-medium text-slate-300">Audience Tag</label>
                 <input
                   type="text"
-                  required
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
+                  {...register('tag', { required: 'Audience tag is required.' })}
                   className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
                   placeholder="product_updates"
                 />
+                {errors.tag && (
+                  <p role="alert" className="mt-1 text-[11px] text-red-400">{errors.tag.message}</p>
+                )}
               </div>
 
               <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
@@ -329,7 +348,8 @@ export const SubscribersPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-medium"
+                  disabled={isSubmitting}
+                  className="px-4 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-medium disabled:opacity-50"
                 >
                   Create Subscriber (PUT)
                 </button>

@@ -5,6 +5,7 @@
  */
 
 import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import {
   UserCheck,
   Lock,
@@ -22,37 +23,67 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { StatusBadge } from '../components/common/StatusBadge';
 
+interface ProfileFormValues {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  timezone: string;
+}
+
+interface PasswordFormValues {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+}
+
+const FieldError: React.FC<{ message?: string }> = ({ message }) =>
+  message ? (
+    <p role="alert" className="mt-1 text-[11px] text-red-400">
+      {message}
+    </p>
+  ) : null;
+
 export const ProfileSecurityPage: React.FC = () => {
   const { user, updateProfile, changePassword, logout } = useAuth();
 
-  // Profile Edit State (PATCH /me)
-  const [firstName, setFirstName] = useState(user?.name?.first || 'Om Prakash');
-  const [lastName, setLastName] = useState(user?.name?.last || 'Tiwari');
-  const [phone, setPhone] = useState(user?.phone || '+91 98765 43210');
-  const [timezone, setTimezone] = useState(user?.timezone || 'Asia/Kolkata');
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  // Profile Edit Form (PATCH /me)
+  const {
+    register: registerProfile,
+    handleSubmit: handleProfileSubmit,
+    formState: { errors: profileErrors, isSubmitting: isUpdatingProfile },
+  } = useForm<ProfileFormValues>({
+    defaultValues: {
+      firstName: user?.name?.first || 'Om Prakash',
+      lastName: user?.name?.last || 'Tiwari',
+      phone: user?.phone || '+91 98765 43210',
+      timezone: user?.timezone || 'Asia/Kolkata',
+    },
+  });
   const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Password Change State (POST /me)
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  // Password Change Form (POST /me)
+  const {
+    register: registerPassword,
+    handleSubmit: handlePasswordSubmit,
+    getValues: getPasswordValues,
+    reset: resetPasswordForm,
+    formState: { errors: passwordErrors, isSubmitting: isChangingPassword },
+  } = useForm<PasswordFormValues>({
+    defaultValues: { currentPassword: '', newPassword: '', confirmNewPassword: '' },
+  });
   const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsUpdatingProfile(true);
+  const handleUpdateProfile = async (values: ProfileFormValues) => {
     setProfileMsg(null);
 
     try {
       await updateProfile({
         name: {
-          first: firstName.trim(),
-          last: lastName.trim(),
+          first: values.firstName.trim(),
+          last: values.lastName.trim(),
         },
-        phone: phone.trim() || undefined,
-        timezone: timezone.trim(),
+        phone: values.phone.trim() || undefined,
+        timezone: values.timezone.trim(),
       });
       setProfileMsg({
         type: 'success',
@@ -63,32 +94,12 @@ export const ProfileSecurityPage: React.FC = () => {
         type: 'error',
         text: err.message || 'Failed to update profile.',
       });
-    } finally {
-      setIsUpdatingProfile(false);
     }
   };
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleChangePassword = async ({ currentPassword, newPassword }: PasswordFormValues) => {
     setPasswordMsg(null);
 
-    if (newPassword.length < 8) {
-      setPasswordMsg({
-        type: 'error',
-        text: 'New password must be at least 8 characters long.',
-      });
-      return;
-    }
-
-    if (newPassword !== confirmNewPassword) {
-      setPasswordMsg({
-        type: 'error',
-        text: 'New password and confirmation do not match.',
-      });
-      return;
-    }
-
-    setIsChangingPassword(true);
     try {
       const res = await changePassword({
         currentPassword,
@@ -98,16 +109,12 @@ export const ProfileSecurityPage: React.FC = () => {
         type: 'success',
         text: res.message || 'Password changed successfully via POST /me.',
       });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmNewPassword('');
+      resetPasswordForm();
     } catch (err: any) {
       setPasswordMsg({
         type: 'error',
         text: err.message || 'Failed to change password.',
       });
-    } finally {
-      setIsChangingPassword(false);
     }
   };
 
@@ -211,36 +218,39 @@ export const ProfileSecurityPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleUpdateProfile} className="space-y-4 text-xs">
+            <form onSubmit={handleProfileSubmit(handleUpdateProfile)} noValidate className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-medium text-slate-300">First Name *</label>
                   <input
                     type="text"
-                    required
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
+                    {...registerProfile('firstName', {
+                      required: 'First name is required.',
+                      validate: (v) => v.trim().length > 0 || 'First name is required.',
+                    })}
                     className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
                   />
+                  <FieldError message={profileErrors.firstName?.message} />
                 </div>
 
                 <div>
                   <label className="block font-medium text-slate-300">Last Name *</label>
                   <input
                     type="text"
-                    required
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
+                    {...registerProfile('lastName', {
+                      required: 'Last name is required.',
+                      validate: (v) => v.trim().length > 0 || 'Last name is required.',
+                    })}
                     className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
                   />
+                  <FieldError message={profileErrors.lastName?.message} />
                 </div>
 
                 <div>
                   <label className="block font-medium text-slate-300">Phone</label>
                   <input
                     type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    {...registerProfile('phone')}
                     className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
                   />
                 </div>
@@ -249,8 +259,7 @@ export const ProfileSecurityPage: React.FC = () => {
                   <label className="block font-medium text-slate-300">Timezone</label>
                   <input
                     type="text"
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
+                    {...registerProfile('timezone')}
                     className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
                   />
                 </div>
@@ -296,17 +305,16 @@ export const ProfileSecurityPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
+            <form onSubmit={handlePasswordSubmit(handleChangePassword)} noValidate className="space-y-4 text-xs">
               <div>
                 <label className="block font-medium text-slate-300">Current Password *</label>
                 <input
                   type="password"
-                  required
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  {...registerPassword('currentPassword', { required: 'Current password is required.' })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
                   placeholder="enter current password"
                 />
+                <FieldError message={passwordErrors.currentPassword?.message} />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -314,24 +322,29 @@ export const ProfileSecurityPage: React.FC = () => {
                   <label className="block font-medium text-slate-300">New Password *</label>
                   <input
                     type="password"
-                    required
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    {...registerPassword('newPassword', {
+                      required: 'New password is required.',
+                      minLength: { value: 8, message: 'New password must be at least 8 characters long.' },
+                    })}
                     className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
                     placeholder="min. 8 characters"
                   />
+                  <FieldError message={passwordErrors.newPassword?.message} />
                 </div>
 
                 <div>
                   <label className="block font-medium text-slate-300">Confirm New Password *</label>
                   <input
                     type="password"
-                    required
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    {...registerPassword('confirmNewPassword', {
+                      required: 'Please confirm the new password.',
+                      validate: (v) =>
+                        v === getPasswordValues('newPassword') || 'New password and confirmation do not match.',
+                    })}
                     className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
                     placeholder="re-enter new password"
                   />
+                  <FieldError message={passwordErrors.confirmNewPassword?.message} />
                 </div>
               </div>
 

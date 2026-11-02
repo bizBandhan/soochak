@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
 import {
   Globe,
   Plus,
@@ -24,18 +25,41 @@ import type { SiteResource, PublicVapidConfig } from '../types';
 import { CodeSnippet } from '../components/common/CodeSnippet';
 import { StatusBadge } from '../components/common/StatusBadge';
 
+interface SiteFormValues {
+  name: string;
+  origin: string;
+  serviceWorkerPath: string;
+  quota: number;
+}
+
+const SITE_FORM_DEFAULTS: SiteFormValues = {
+  name: '',
+  origin: '',
+  serviceWorkerPath: '/sw.js',
+  quota: 15000,
+};
+
+const FieldError: React.FC<{ message?: string }> = ({ message }) =>
+  message ? (
+    <p role="alert" className="mt-1 text-[11px] text-red-400">
+      {message}
+    </p>
+  ) : null;
+
 export const SitesResourcesPage: React.FC = () => {
   const [sites, setSites] = useState<SiteResource[]>([]);
   const [vapidConfig, setVapidConfig] = useState<PublicVapidConfig | null>(null);
   const [selectedSite, setSelectedSite] = useState<SiteResource | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // New site modal state
+  // New site modal
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newSiteName, setNewSiteName] = useState('');
-  const [newSiteOrigin, setNewSiteOrigin] = useState('');
-  const [newWorkerPath, setNewWorkerPath] = useState('/sw.js');
-  const [newQuota, setNewQuota] = useState(15000);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<SiteFormValues>({ defaultValues: SITE_FORM_DEFAULTS });
 
   const loadData = async () => {
     setLoading(true);
@@ -58,22 +82,18 @@ export const SitesResourcesPage: React.FC = () => {
     loadData();
   }, []);
 
-  const handleCreateSite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSiteName || !newSiteOrigin) return;
-
+  const handleCreateSite = async (values: SiteFormValues) => {
     const created = await sitesService.addSite({
-      name: newSiteName.trim(),
-      origin: newSiteOrigin.trim(),
-      serviceWorkerPath: newWorkerPath.trim() || '/sw.js',
-      subscriberLimit: Number(newQuota),
+      name: values.name.trim(),
+      origin: values.origin.trim(),
+      serviceWorkerPath: values.serviceWorkerPath.trim() || '/sw.js',
+      subscriberLimit: Number(values.quota),
     });
 
     setSites([...sites, created]);
     setSelectedSite(created);
     setShowAddModal(false);
-    setNewSiteName('');
-    setNewSiteOrigin('');
+    reset(SITE_FORM_DEFAULTS);
   };
 
   const clientIntegrationCode = `// 1. Client-Side Browser Subscription Code
@@ -334,52 +354,58 @@ self.addEventListener('notificationclick', (event) => {
               Add New Website Origin
             </h3>
 
-            <form onSubmit={handleCreateSite} className="space-y-3 text-xs">
+            <form onSubmit={handleSubmit(handleCreateSite)} noValidate className="space-y-3 text-xs">
               <div>
                 <label className="block font-medium text-slate-300">Site Name *</label>
                 <input
                   type="text"
-                  required
-                  value={newSiteName}
-                  onChange={(e) => setNewSiteName(e.target.value)}
+                  {...register('name', {
+                    required: 'Site name is required.',
+                    validate: (v) => v.trim().length > 0 || 'Site name is required.',
+                  })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
                   placeholder="e.g. Customer Portal"
                 />
+                <FieldError message={errors.name?.message} />
               </div>
 
               <div>
                 <label className="block font-medium text-slate-300">Allowed Origin (FQDN) *</label>
                 <input
                   type="url"
-                  required
-                  value={newSiteOrigin}
-                  onChange={(e) => setNewSiteOrigin(e.target.value)}
+                  {...register('origin', {
+                    required: 'Allowed origin is required.',
+                    pattern: { value: /^https?:\/\/\S+$/i, message: 'Enter a valid http(s) origin.' },
+                  })}
                   className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-cyan-300 focus:ring-1 focus:ring-cyan-500"
                   placeholder="https://portal.example.com"
                 />
+                <FieldError message={errors.origin?.message} />
               </div>
 
               <div>
                 <label className="block font-medium text-slate-300">Service Worker Path</label>
                 <input
                   type="text"
-                  required
-                  value={newWorkerPath}
-                  onChange={(e) => setNewWorkerPath(e.target.value)}
+                  {...register('serviceWorkerPath', { required: 'Service Worker path is required.' })}
                   className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
                   placeholder="/sw.js"
                 />
+                <FieldError message={errors.serviceWorkerPath?.message} />
               </div>
 
               <div>
                 <label className="block font-medium text-slate-300">Subscriber Quota Limit</label>
                 <input
                   type="number"
-                  required
-                  value={newQuota}
-                  onChange={(e) => setNewQuota(Number(e.target.value))}
+                  {...register('quota', {
+                    valueAsNumber: true,
+                    required: 'Quota is required.',
+                    min: { value: 1, message: 'Quota must be at least 1.' },
+                  })}
                   className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
                 />
+                <FieldError message={errors.quota?.message} />
               </div>
 
               <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
@@ -392,7 +418,8 @@ self.addEventListener('notificationclick', (event) => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-medium"
+                  disabled={isSubmitting}
+                  className="px-4 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-medium disabled:opacity-50"
                 >
                   Save Allowed Origin
                 </button>

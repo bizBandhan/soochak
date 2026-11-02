@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
 import {
   Send,
   Bell,
@@ -24,16 +25,42 @@ import { NotificationPreview } from '../components/common/NotificationPreview';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import type { NotificationPayload } from '../types';
 
+interface ComposeFormValues {
+  title: string;
+  body: string;
+  url: string;
+  tag: string;
+  audienceFilter: 'all' | 'tag';
+}
+
+const FieldError: React.FC<{ message?: string }> = ({ message }) =>
+  message ? (
+    <p role="alert" className="mt-1 text-[11px] text-red-400">
+      {message}
+    </p>
+  ) : null;
+
 export const ComposeNotificationPage: React.FC = () => {
   const { organization } = useAuth();
   const navigate = useNavigate();
 
-  // Form Fields
-  const [title, setTitle] = useState('New Product Announcement');
-  const [body, setBody] = useState('Explore the latest real-time push notification features released today in your BizBandhan dashboard.');
-  const [url, setUrl] = useState(organization?.canonicalOrigin || 'https://bizbandhan.com');
-  const [tag, setTag] = useState('product_updates');
-  const [audienceFilter, setAudienceFilter] = useState<'all' | 'tag'>('tag');
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    getValues,
+    formState: { errors },
+  } = useForm<ComposeFormValues>({
+    defaultValues: {
+      title: 'New Product Announcement',
+      body: 'Explore the latest real-time push notification features released today in your BizBandhan dashboard.',
+      url: organization?.canonicalOrigin || 'https://bizbandhan.com',
+      tag: 'product_updates',
+      audienceFilter: 'tag',
+    },
+  });
+  const [title, body, url, tag, audienceFilter] = watch(['title', 'body', 'url', 'tag', 'audienceFilter']);
 
   // Confirmation modal & emission states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -47,28 +74,13 @@ export const ComposeNotificationPage: React.FC = () => {
   } | null>(null);
 
   useEffect(() => {
-    if (organization?.canonicalOrigin && url === 'https://bizbandhan.com') {
-      setUrl(organization.canonicalOrigin);
+    if (organization?.canonicalOrigin && getValues('url') === 'https://bizbandhan.com') {
+      setValue('url', organization.canonicalOrigin);
     }
-  }, [organization]);
+  }, [organization, getValues, setValue]);
 
-  const handleOpenConfirm = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOpenConfirm = () => {
     setErrorMsg(null);
-
-    if (!title.trim()) {
-      setErrorMsg('Please specify a notification title.');
-      return;
-    }
-    if (!body.trim()) {
-      setErrorMsg('Please write the notification body message.');
-      return;
-    }
-    if (!url.trim()) {
-      setErrorMsg('Please specify a destination click URL.');
-      return;
-    }
-
     setShowConfirmModal(true);
   };
 
@@ -152,8 +164,8 @@ export const ComposeNotificationPage: React.FC = () => {
               type="button"
               onClick={() => {
                 setEmissionResult(null);
-                setTitle('');
-                setBody('');
+                setValue('title', '');
+                setValue('body', '');
               }}
               className="px-4 py-2 rounded border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-slate-300 text-xs font-medium transition"
             >
@@ -174,7 +186,7 @@ export const ComposeNotificationPage: React.FC = () => {
         /* Compose Form + Split Live Preview */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* Form */}
-          <form onSubmit={handleOpenConfirm} className="space-y-5">
+          <form onSubmit={handleSubmit(handleOpenConfirm)} noValidate className="space-y-5">
             {errorMsg && (
               <div className="p-3 rounded-lg border border-red-800/60 bg-red-950/40 text-xs text-red-300 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
@@ -198,13 +210,15 @@ export const ComposeNotificationPage: React.FC = () => {
                 </div>
                 <input
                   type="text"
-                  required
                   maxLength={100}
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  {...register('title', {
+                    required: 'Please specify a notification title.',
+                    validate: (v) => v.trim().length > 0 || 'Please specify a notification title.',
+                  })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                   placeholder="e.g. Critical Security Update"
                 />
+                <FieldError message={errors.title?.message} />
               </div>
 
               <div>
@@ -217,14 +231,16 @@ export const ComposeNotificationPage: React.FC = () => {
                   </span>
                 </div>
                 <textarea
-                  required
                   rows={3}
                   maxLength={300}
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
+                  {...register('body', {
+                    required: 'Please write the notification body message.',
+                    validate: (v) => v.trim().length > 0 || 'Please write the notification body message.',
+                  })}
                   className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500 leading-relaxed"
                   placeholder="Summary text displayed inside the system notification banner..."
                 />
+                <FieldError message={errors.body?.message} />
               </div>
 
               <div>
@@ -237,13 +253,15 @@ export const ComposeNotificationPage: React.FC = () => {
                   </span>
                   <input
                     type="url"
-                    required
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
+                    {...register('url', {
+                      required: 'Please specify a destination click URL.',
+                      pattern: { value: /^https?:\/\/\S+$/i, message: 'Enter a valid http(s) URL.' },
+                    })}
                     className="block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded-r-md text-cyan-300 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                     placeholder="https://bizbandhan.com/feature"
                   />
                 </div>
+                <FieldError message={errors.url?.message} />
               </div>
             </div>
 
@@ -259,7 +277,7 @@ export const ComposeNotificationPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <button
                   type="button"
-                  onClick={() => setAudienceFilter('all')}
+                  onClick={() => setValue('audienceFilter', 'all')}
                   className={`p-3 rounded-lg border text-left transition ${
                     audienceFilter === 'all'
                       ? 'bg-cyan-950/60 border-cyan-700 text-white'
@@ -274,7 +292,7 @@ export const ComposeNotificationPage: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => setAudienceFilter('tag')}
+                  onClick={() => setValue('audienceFilter', 'tag')}
                   className={`p-3 rounded-lg border text-left transition ${
                     audienceFilter === 'tag'
                       ? 'bg-cyan-950/60 border-cyan-700 text-white'
@@ -299,8 +317,7 @@ export const ComposeNotificationPage: React.FC = () => {
                     </span>
                     <input
                       type="text"
-                      value={tag}
-                      onChange={(e) => setTag(e.target.value)}
+                      {...register('tag')}
                       className="block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded-r-md text-white focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                       placeholder="e.g. product_updates, dev_alerts"
                     />
