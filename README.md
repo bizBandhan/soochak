@@ -78,6 +78,10 @@ The prototype page at `codebase/backend/public/index.html` registers `/sw.js`, o
 
 The backend contains an Express/Mongoose bootstrap, static serving configured for `codebase/backend/public/`, Web Push subscriber/config routes, an in-progress one-off notification route, and an organization CRUD route that emits asynchronous owner/role/permission provisioning. Login, reviewed onboarding, activation recovery, authorization policy, and verified end-to-end notification delivery remain unfinished. Email and customer website/dashboard hostname ownership verification are deferred from initial activation. The dashboard page inventory and known integration gaps are documented in [`docs/FRONTEND.md`](docs/FRONTEND.md); target user and delivery sequences are in [`docs/sequence.md`](docs/sequence.md).
 
+### API Conventions
+
+All CRUD resources use one method mapping: `GET /` reads all records, `POST /` reads all records filtered by body parameters, `PUT /` creates a record, `GET /:id` reads one, `PUT /:id` updates one, `DELETE /:id` deletes one, and `PATCH /:id` reorders one (`{ "action": "move-up" | "move-down" }`; disabled with 405 where ordering is meaningless). Details are in [`docs/FRD.md`](docs/FRD.md) and the OpenAPI spec at `codebase/backend/public/api-docs/openapi.yml`.
+
 ### Organization and Host Tenancy
 
 The target hosted-SaaS model gives each organization a tenant-specific Soochak dashboard/API hostname. Local development uses `[tenant].soochak.optiwari.duckdns.org`; production uses `[tenant].soochak.bizbandhan.com`. The protected operator management hosts are `mgmt.soochak.optiwari.duckdns.org` for local development and `mgmt.soochak.bizbandhan.com` for production. The customer's primary website origin is separate data used for Web Push configuration. A user's tenant scope is tied to one organization; multi-organization Membership is deferred. The current backend instead derives `req.origin` from the incoming request host, so the data model and authorization middleware must be adapted to distinguish tenant host from customer website origin.

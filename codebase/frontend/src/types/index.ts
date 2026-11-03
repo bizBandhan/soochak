@@ -48,6 +48,7 @@ export interface Organization {
 export interface OrganizationRegistrationPayload {
   name: string;
   slug: string;
+  plan?: 'free' | 'growth' | 'scale';
   limits?: Partial<OrganizationLimits>;
   owner: {
     user: string;

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { MongooseModel } from "express-web-tools";
+import { DEFAULT_PLAN, PLAN_IDS } from "./plans.js";
 
 const organizationSchema = new MongooseModel(
     "Organization",
@@ -15,9 +16,14 @@ const organizationSchema = new MongooseModel(
             trim: true,
             lowercase: true
         },
+        plan: {
+            type: String,
+            enum: PLAN_IDS,
+            default: DEFAULT_PLAN
+        },
         limits: {
             type: mongoose.Schema.Types.Mixed
-            // Based on plan chosen.
+            // Derived from the plan on the server; never taken from client input.
             // user:10
             // subscriber:10000
             // message:50000

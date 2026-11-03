@@ -12,6 +12,22 @@ No build, test, or local run commands are defined in the current checkout: there
 
 No formatter, linter, or language-specific style configuration is present yet. Keep modules focused by product component, use descriptive names, and follow the conventions of the language and tooling introduced with each component. Keep browser SDK code framework-independent and preserve existing customer Service Worker behavior, as called for in the project overview.
 
+## API Conventions
+
+All CRUD resources follow one method policy:
+
+| Method and path | Purpose |
+|---|---|
+| `GET /` | Read all records |
+| `POST /` | Read all records filtered by body parameters (query, not create) |
+| `PUT /` | Create a record |
+| `GET /:id` | Read the record with that id |
+| `PUT /:id` | Update the record with that id |
+| `DELETE /:id` | Delete the record with that id |
+| `PATCH /:id` | Reorder the record with that id (`{ "action": "move-up" \| "move-down" }`) |
+
+`PATCH /:id` reorders the record with that id; the body is `{ "action": "move-up" | "move-down" }`. Resources without a meaningful order disable it (organizations return 405). Keep `docs/FRD.md` and `codebase/backend/public/api-docs/openapi.yml` aligned with this.
+
 ## Testing Guidelines
 
 There are no test files or test framework configured yet. Add tests alongside or under `tests/` as the implementation takes shape. Cover subscription lifecycle and notification delivery behavior, including failure and expired-subscription cases. Document the exact test command and any required services when a test runner is added.

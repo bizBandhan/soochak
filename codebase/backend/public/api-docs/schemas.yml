@@ -71,7 +71,8 @@ components:
       properties:
         name: { type: string }
         slug: { type: string }
-        limits: { type: object, additionalProperties: true }
+        plan: { type: string, enum: [free, growth, scale], default: free, description: Selects the quotas; limits are derived server-side. }
+        limits: { type: object, additionalProperties: true, readOnly: true, description: Ignored on input; derived from plan. }
         owner:
           type: object
           required: [user, name, sex, dob, email, password]

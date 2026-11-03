@@ -109,6 +109,7 @@ export const RegisterOrgPage: React.FC = () => {
     const payload: OrganizationRegistrationPayload = {
       name: values.orgName.trim(),
       slug: values.slug.trim(),
+      plan: values.plan,
       limits: {
         maxSubscribers: getPlan(values.plan).maxSubscribers,
         maxNotificationsPerDay: getPlan(values.plan).maxNotificationsPerDay,

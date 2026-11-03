@@ -5,6 +5,13 @@ info:
   description: >-
     API documentation for authentication, current-user, user CRUD, and role CRUD
     endpoints. /auth and /me are alternative paths for the same operations.
+
+
+    CRUD policy for every resource: `GET /` reads all records; `POST /` reads
+    all records filtered by body parameters (a query, not a create); `PUT /`
+    creates a record; `GET /{id}` reads one record; `PUT /{id}` updates it; `DELETE /{id}` deletes it; `PATCH /{id}` reorders it
+    (body `{ "action": "move-up" | "move-down" }`; disabled with 405 where
+    ordering is not meaningful, e.g. organizations).
 servers:
   - url: https://soochak.optiwari.duckdns.org/api/v1
     description: Current API host
