@@ -66,8 +66,8 @@ const normalizeCurrentUser = (response: unknown): UserProfile => {
     name: { first, last },
     email,
     phone: typeof user.phone === 'string' ? user.phone : undefined,
-    sex: user.sex === 'male' || user.sex === 'female' || user.sex === 'other'
-      ? user.sex
+    sex: typeof user.sex === 'string' && ['male', 'female', 'other'].includes(user.sex.toLowerCase())
+      ? (user.sex.toLowerCase() as UserProfile['sex'])
       : undefined,
     dob: typeof user.dob === 'string' ? user.dob : undefined,
     timezone: typeof user.timezone === 'string' ? user.timezone : undefined,
@@ -75,7 +75,7 @@ const normalizeCurrentUser = (response: unknown): UserProfile => {
     organizationId: typeof user.organizationId === 'string' ? user.organizationId : undefined,
     roles: Array.isArray(user.roles) && user.roles.every((role) => typeof role === 'string')
       ? user.roles
-      : undefined,
+      : typeof user.role === 'string' ? [user.role] : undefined,
     createdAt: typeof user.createdAt === 'string' ? user.createdAt : undefined,
     updatedAt: typeof user.updatedAt === 'string' ? user.updatedAt : undefined,
   };
@@ -93,16 +93,15 @@ export const authService = {
    * Login with documented credential request
    * Returns token and user profile
    */
-  async login(credentials: { user: string; password: string }): Promise<{ token: string; user: UserProfile }> {
+  async login(credentials: { user: string; password: string }): Promise<{ token: string | null; user: UserProfile }> {
     try {
       const res = await apiClient.api.put('/auth', credentials);
-      const token = res.token || res.data?.token || 'simulated-token-live';
-      const user = res.user || res.data?.user || SEED_USER;
-      apiClient.setToken(token);
-      return { token, user };
+      // The session is an httpOnly cookie set by the server; no token is kept in JS or storage.
+      apiClient.setToken(null);
+      return { token: null, user: normalizeCurrentUser(res) };
     } catch (err: any) {
-      // If server is not responding or unreachable in local sandbox, allow simulated login for test credentials
-      if (apiClient.isSimulationMode || err.message?.includes('fetch') || err.message?.includes('NetworkError') || err.message?.includes('Failed to fetch')) {
+      // Simulated login runs only when the simulation toggle is on, never to hide a real failure.
+      if (apiClient.isSimulationMode) {
         // Simple rate-limit simulation test check: if password is "ratelimit"
         if (credentials.password === 'ratelimit') {
           const rateErr: any = new Error('Too many login attempts. Please wait 60 seconds before trying again.');
@@ -147,9 +146,9 @@ export const authService = {
   async updateProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
     try {
       const res = await apiClient.api.patch('/me', updates);
-      return res.data || res;
+      return normalizeCurrentUser(res);
     } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
+      if (apiClient.isSimulationMode) {
         simUser = { ...simUser, ...updates };
         return simUser;
       }
@@ -164,9 +163,9 @@ export const authService = {
   async changePassword(passwords: { currentPassword: string; newPassword: string }): Promise<{ message: string }> {
     try {
       const res = await apiClient.api.post('/me', passwords);
-      return res.data || res;
+      return { message: res?.message || 'Password updated successfully.' };
     } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
+      if (apiClient.isSimulationMode) {
         if (passwords.newPassword.length < 8) {
           throw new Error('New password must be at least 8 characters long.');
         }
@@ -237,11 +236,11 @@ export const organizationService = {
       const res = await apiClient.api.put('/auth/organization', payload);
       return {
         organization: res.data || res,
-        provisioningStatus: 'accepted_event_emitted',
-        warningNote: 'Organization record created. Asynchronous owner provisioning event emitted to queue.',
+        provisioningStatus: 'owner_provisioned',
+        warningNote: 'Organization and owner account created. You are signed in.',
       };
     } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
+      if (apiClient.isSimulationMode) {
         const newOrg: Organization = {
           _id: 'org_' + payload.slug + '_' + Date.now().toString(36),
           name: payload.name,
@@ -407,15 +406,15 @@ export const webPushService = {
   },
 
   /**
-   * DELETE /web-push/subscriber
-   * Delete subscriber by endpoint
+   * DELETE /web-push/subscriber/{id}
+   * Delete subscriber by id
    */
-  async deleteSubscriberByEndpoint(endpoint: string): Promise<void> {
+  async deleteSubscriber(id: string): Promise<void> {
     try {
-      await apiClient.api.delete('/web-push/subscriber', { endpoint });
+      await apiClient.api.delete(`/web-push/subscriber/${encodeURIComponent(id)}`);
     } catch (err: any) {
       if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        simSubscribers = simSubscribers.filter((s) => s.endpoint !== endpoint);
+        simSubscribers = simSubscribers.filter((s) => s._id !== id);
         return;
       }
       throw err;
@@ -514,7 +513,7 @@ export const sitesService = {
 };
 
 export const adminService = {
-  // Routes for /auth/user, /auth/role, /auth/permission are NOT mounted yet in backend
+  // /auth/user is mounted in the backend but this page still uses seed data; /auth/role and /auth/permission are not mounted yet
   async getUsers(): Promise<ManagedUser[]> {
     return SEED_ADMIN_USERS;
   },

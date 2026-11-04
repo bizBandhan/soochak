@@ -53,10 +53,10 @@ export const ProfileSecurityPage: React.FC = () => {
     formState: { errors: profileErrors, isSubmitting: isUpdatingProfile },
   } = useForm<ProfileFormValues>({
     defaultValues: {
-      firstName: user?.name?.first || 'Om Prakash',
-      lastName: user?.name?.last || 'Tiwari',
-      phone: user?.phone || '+91 98765 43210',
-      timezone: user?.timezone || 'Asia/Kolkata',
+      firstName: user?.name?.first ?? '',
+      lastName: user?.name?.last ?? '',
+      phone: user?.phone ?? '',
+      timezone: user?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     },
   });
   const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -82,7 +82,7 @@ export const ProfileSecurityPage: React.FC = () => {
           first: values.firstName.trim(),
           last: values.lastName.trim(),
         },
-        phone: values.phone.trim() || undefined,
+        phone: values.phone.trim(),
         timezone: values.timezone.trim(),
       });
       setProfileMsg({

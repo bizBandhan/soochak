@@ -2,6 +2,8 @@ import { Router } from "express";
 import subscriberRouter from "./web-push/subscriber/routes.js";
 import noteRouter from "./web-push/notify/router.js";
 import organizationRouter from "./auth/organization/router.js";
+import sessionRouter from "./auth/session/router.js";
+import userRouter from "./auth/user/router.js";
 const router = Router();
 const vapid = {
     "publicKey": "BHia8cQUT1hGZIwnz0UmpprftYGekEgp4hEtekrJhega-2ReT5jml27nI-0bbIFlkwuwj1P1mAYUw3LanNBuGv0",
@@ -14,7 +16,9 @@ router.use((req, res, next) => {
     next();
 })
 router
+    .use(sessionRouter)
     .use(organizationRouter)
+    .use(userRouter)
     .use(
         "/api/v1/web-push/subscriber",
         subscriberRouter

@@ -17,7 +17,7 @@ interface AuthContextType {
   isLoading: boolean;
   isSimulationMode: boolean;
   setSimulationMode: (enabled: boolean) => void;
-  login: (credentials: { user: string; password: string }) => Promise<{ token: string; user: UserProfile }>;
+  login: (credentials: { user: string; password: string }) => Promise<{ token: string | null; user: UserProfile }>;
   registerOrganization: (payload: OrganizationRegistrationPayload) => Promise<{
     organization: Organization;
     provisioningStatus: string;
@@ -96,22 +96,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await organizationService.register(payload);
       setOrganization(result.organization);
-      // Owner provisioning is asynchronous event-driven, but set local owner identity
-      const ownerUser: UserProfile = {
-        _id: 'usr_' + payload.owner.user,
-        user: payload.owner.user,
-        name: payload.owner.name,
-        email: payload.owner.email,
-        phone: payload.owner.phone,
-        sex: payload.owner.sex,
-        dob: payload.owner.dob,
-        timezone: payload.owner.timezone || 'UTC',
-        organizationId: result.organization._id,
-        roles: ['owner'],
-      };
+      // The server has started the session; load the real owner. The locally built profile is only a
+      // fallback for simulation mode, where no session exists.
+      let ownerUser: UserProfile;
+      try {
+        ownerUser = await authService.getCurrentUser();
+      } catch {
+        ownerUser = {
+          _id: 'usr_' + payload.owner.user,
+          user: payload.owner.user,
+          name: payload.owner.name,
+          email: payload.owner.email,
+          phone: payload.owner.phone,
+          sex: payload.owner.sex,
+          dob: payload.owner.dob,
+          timezone: payload.owner.timezone || 'UTC',
+          organizationId: result.organization._id,
+          roles: ['owner'],
+        };
+      }
       setUser(ownerUser);
-      setToken('sim_token_registered_' + Date.now());
-      apiClient.setToken('sim_token_registered_' + Date.now());
+      // The session lives in an httpOnly cookie set by the server; no token is kept in JS or storage.
+      setToken(null);
+      apiClient.setToken(null);
       return result;
     } finally {
       setIsLoading(false);

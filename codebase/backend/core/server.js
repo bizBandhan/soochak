@@ -8,7 +8,8 @@ import moduleRoutes from "../module/index.js";
 (async () => {
     configTest([
         "PORT",
-        "DB"
+        "DB",
+        "JWT_SECRET"
     ])
 
     await mongoose.connect(process.env.DB);

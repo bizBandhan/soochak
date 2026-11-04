@@ -1,40 +1,25 @@
-import { CrudController, HttpError, eventStream } from "express-web-tools";
+import { CrudController } from "express-web-tools";
 import organizationModel from "./model.js";
 import { DEFAULT_PLAN, PLAN_IDS, limitsForPlan } from "./plans.js";
-import "./events.js";
-
-const E164_PATTERN = /^\+[1-9]\d{6,14}$/;
-
-const isValidTimezone = (timezone) => {
-    try {
-        new Intl.DateTimeFormat("en", { timeZone: timezone });
-        return true;
-    } catch {
-        return false;
-    }
-};
-
-const capitalize = (value) => typeof value === "string" && value
-    ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
-    : value;
+import { provisionOrganizationOwner } from "./provisioning.js";
+import { startSession } from "../user/session.js";
+import { httpError, capitalize, normalizePhone, assertTimezone } from "../user/validation.js";
 
 // Normalises owner input from the dashboard (lowercase sex, blank optionals) and validates phone/timezone.
 const normalizeOwner = (owner) => {
     const normalized = { ...owner, sex: capitalize(owner.sex) };
 
-    if (normalized.phone === undefined || normalized.phone === null || String(normalized.phone).trim() === "") {
+    const phone = normalizePhone(normalized.phone);
+    if (phone === undefined) {
         delete normalized.phone;
     } else {
-        normalized.phone = String(normalized.phone).replace(/[\s()-]/g, "");
-        if (!E164_PATTERN.test(normalized.phone)) {
-            throw new HttpError(400, "Phone number must be in international format, e.g. +919876543210");
-        }
+        normalized.phone = phone;
     }
 
     if (!normalized.timezone) {
         delete normalized.timezone;
-    } else if (!isValidTimezone(normalized.timezone)) {
-        throw new HttpError(400, "Timezone must be a valid IANA timezone, e.g. Asia/Kolkata");
+    } else {
+        assertTimezone(normalized.timezone);
     }
 
     return normalized;
@@ -53,36 +38,51 @@ class OrganizationController extends CrudController {
             && owner.password;
 
         if (!hasOwnerDetails) {
-            throw new HttpError(400, "Organization owner details are required");
+            throw httpError(400, "Organization owner details are required");
         }
 
         const selectedPlan = plan ?? DEFAULT_PLAN;
         if (!PLAN_IDS.includes(selectedPlan)) {
-            throw new HttpError(400, `Plan must be one of: ${PLAN_IDS.join(", ")}`);
+            throw httpError(400, `Plan must be one of: ${PLAN_IDS.join(", ")}`);
         }
 
         const origin = this.request?.origin;
         if (!origin) {
-            throw new HttpError(400, "Organization origin is required");
+            throw httpError(400, "Organization origin is required");
         }
 
         const normalizedOwner = normalizeOwner(owner);
 
         // Quotas come from the plan only; client-supplied limits are ignored.
-        const organization = await super.create({
-            ...organizationData,
-            plan: selectedPlan,
-            limits: limitsForPlan(selectedPlan)
-        });
+        let organization;
+        try {
+            organization = await super.create({
+                ...organizationData,
+                plan: selectedPlan,
+                limits: limitsForPlan(selectedPlan)
+            });
+        } catch (error) {
+            if (/E11000/.test(error.message)) {
+                throw httpError(409, "An organization with this name or slug already exists");
+            }
+            throw error;
+        }
 
-        // The event provisions the first owner and the default owner role/grants.
-        // Keep owner credentials inside the process and never include them in the API response.
-        eventStream.emitEvent("organization-created", {
-            origin,
-            organizationId: organization._id,
-            owner: normalizedOwner
-        });
+        // Provision the owner before responding so a session can be issued. Credentials
+        // stay inside the process and are never returned in the API response.
+        let ownerUser;
+        try {
+            ownerUser = await provisionOrganizationOwner({ origin, owner: normalizedOwner });
+        } catch (error) {
+            // Roll back so the slug is not left reserved by an organization without an owner.
+            await organizationModel.collection.deleteOne({ _id: organization._id });
+            if (error.code === "OWNER_EXISTS") {
+                throw httpError(409, error.message);
+            }
+            throw error;
+        }
 
+        startSession(this.request, this.request.res, ownerUser);
         return organization;
     }
 }

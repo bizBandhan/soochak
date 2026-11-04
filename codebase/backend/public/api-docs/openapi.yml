@@ -57,8 +57,10 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
     put: &login
       tags: [Authentication and current user]
-      summary: Log in and generate an authentication token
+      summary: Log in and start a cookie session
+      description: Sets the httpOnly `authorization` cookie. After 5 failed attempts per origin, username and IP the endpoint returns 429 for 60 seconds.
       operationId: login
+      security: []
       requestBody:
         required: true
         content:
@@ -84,7 +86,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/merge-patch+json:
+          application/json:
             schema: { $ref: './schemas.yml#/components/schemas/UpdateProfileRequest' }
       responses:
         '200':
@@ -96,12 +98,11 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
     delete: &logout
       tags: [Authentication and current user]
-      summary: Log out and invalidate the current token
+      summary: Log out and clear the session cookie
+      description: Idempotent and callable without a session. Tokens are stateless, so this clears the httpOnly cookie rather than revoking the token server-side.
       operationId: logout
-      security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
-        '204': { description: Logged out; the token is deleted or invalidated. }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '204': { description: Logged out; the authorization cookie is cleared. }
   /me:
     get:
       tags: [Authentication and current user]
@@ -123,6 +124,7 @@ paths:
     get:
       tags: [User administration]
       summary: List all users
+      description: Requires the `view:all` grant on `auth:user`. Password and date of birth are never returned.
       operationId: listUsers
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -131,44 +133,55 @@ paths:
           content:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/CrudListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [User administration]
       summary: Query users
-      description: Uses the CRUD route's request-body list/query behavior.
+      description: Requires `view:all` on `auth:user`. The body is an equality filter on `_id`, `user`, `email`, `role`, `sex`, `phone`, `timezone`, `name.first` or `name.last`; operators and other fields are rejected with 400.
       operationId: queryUsers
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
         required: true
         content:
           application/json:
-            schema: { type: object, description: Query criteria; fields depend on the user model. }
+            schema: { type: object, additionalProperties: { oneOf: [{ type: string }, { type: number }, { type: boolean }] } }
       responses:
         '200':
           description: Matching user list.
           content:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/CrudListResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     put:
       tags: [User administration]
       summary: Create a user
+      description: Requires `edit:all` on `auth:user`. Only an owner can create an owner. The password is stored hashed and never returned.
       operationId: createUser
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
         required: true
         content:
           application/json:
-            schema: { type: object, description: User fields depend on the user model. }
+            schema: { $ref: './schemas.yml#/components/schemas/UserCreateInput' }
       responses:
         '201':
           description: User created.
           content:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /auth/user/{id}:
     parameters: [{ $ref: '#/components/parameters/ResourceId' }]
     get:
       tags: [User administration]
       summary: Get a user by ID
+      description: Requires `view:all` on `auth:user`.
       operationId: getUser
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -177,44 +190,51 @@ paths:
           content:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
       tags: [User administration]
       summary: Update a user
+      description: Requires `edit:all` on `auth:user`. Username and password cannot be changed here (users change their own password with `POST /me`). Only an owner can edit owners, and nobody can change their own role.
       operationId: updateUser
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
         required: true
         content:
           application/json:
-            schema: { type: object, description: User fields depend on the user model. }
+            schema: { $ref: './schemas.yml#/components/schemas/UserUpdateInput' }
       responses:
         '200':
           description: User updated.
           content:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
     patch:
       tags: [User administration]
-      summary: Reorder users
-      operationId: reorderUsers
+      summary: Unsupported for users
+      description: Users have no meaningful order, so reordering is rejected.
+      operationId: reorderUsersUnsupported
       security: [{ bearerAuth: [] }, { authCookie: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, description: Reordering payload consumed by CrudRoutes. }
       responses:
-        '200': { description: User order updated. }
+        '405': { description: PATCH is disabled for user records. }
     delete:
       tags: [User administration]
       summary: Delete a user
+      description: Requires `delete:all` on `auth:user`. You cannot delete yourself, only an owner can delete an owner, and the last owner cannot be removed.
       operationId: deleteUser
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
         '200': { description: User deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /auth/role:
     get:
       tags: [Role administration]
@@ -519,6 +539,7 @@ paths:
       tags: [Web Push]
       summary: List subscribers
       operationId: listSubscribers
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
         '200':
           description: Subscriber records in the current request scope.
@@ -531,6 +552,7 @@ paths:
       summary: Query subscribers
       description: Lists subscribers using the request body as query criteria.
       operationId: querySubscribers
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
         required: true
         content:
@@ -546,7 +568,9 @@ paths:
     put:
       tags: [Web Push]
       summary: Create a subscriber record
+      description: Public (used by the browser SDK). Requires an https endpoint and p256dh/auth keys. Re-registering an existing endpoint updates that record and returns its id; keep the id to unsubscribe later.
       operationId: createSubscriber
+      security: []
       requestBody:
         required: true
         content:
@@ -558,11 +582,31 @@ paths:
           content:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/SubscriberItemResponse' }
+        '400': { description: Invalid endpoint or missing keys. }
         '500': { $ref: '#/components/responses/ServerError' }
-    patch:
+  /web-push/subscriber/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
       tags: [Web Push]
-      summary: Update a subscriber by endpoint
+      summary: Read a subscriber
+      operationId: readSubscriber
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Subscriber record.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/SubscriberItemResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Web Push]
+      summary: Update a subscriber
       operationId: updateSubscriber
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
         required: true
         content:
@@ -574,29 +618,26 @@ paths:
           content:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/SubscriberItemResponse' }
-        '404': { description: Subscriber endpoint was not found. }
-        '500': { $ref: '#/components/responses/ServerError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Web Push]
+      summary: Unsupported for subscribers
+      operationId: reorderSubscribersUnsupported
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '405': { description: PATCH is disabled for subscriber records. }
     delete:
       tags: [Web Push]
-      summary: Delete a subscriber by endpoint
+      summary: Delete a subscriber
+      description: Public (used by the browser SDK to unsubscribe with the id returned at registration).
       operationId: deleteSubscriber
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [endpoint]
-              properties:
-                endpoint: { type: string, format: uri }
+      security: []
       responses:
         '200':
           description: Subscriber record deleted.
           content:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/SubscriberItemResponse' }
-        '404': { description: Subscriber endpoint was not found. }
-        '500': { $ref: '#/components/responses/ServerError' }
   /web-push/notify:
     put:
       tags: [Web Push]
@@ -672,7 +713,7 @@ paths:
     put:
       tags: [Organization administration]
       summary: Register an organization
-      description: Creates an organization record scoped to the request origin, then emits an asynchronous event to create the owner user and seed the owner role and permissions. Owner provisioning is not part of the immediate CRUD response; hostname verification is not implemented.
+      description: Creates an organization record scoped to the request origin, synchronously provisions the owner user, owner role and permissions (rolled back on failure), and signs the owner in via an httpOnly `authorization` cookie (`Bearer <JWT>`); the token is not in the response body. Returns 409 for a duplicate name/slug or an existing owner username. Hostname verification is not implemented.
       operationId: registerOrganization
       requestBody:
         required: true
@@ -765,6 +806,16 @@ components:
           schema: { $ref: './schemas.yml#/components/schemas/Error' }
     NotFound:
       description: The requested record does not exist.
+      content:
+        application/json:
+          schema: { $ref: './schemas.yml#/components/schemas/Error' }
+    Forbidden:
+      description: The authenticated user lacks the permission grant (or role) for this operation.
+      content:
+        application/json:
+          schema: { $ref: './schemas.yml#/components/schemas/Error' }
+    Conflict:
+      description: The request conflicts with existing data or a business rule.
       content:
         application/json:
           schema: { $ref: './schemas.yml#/components/schemas/Error' }

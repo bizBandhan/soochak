@@ -1,6 +1,8 @@
 import { API, default as api } from "./module/API.js";
 import { base64UrlToUint8Array } from "./module/Common.js"
 
+const SUBSCRIBER_ID_KEY = "soochak-subscriber-id";
+
 
 HTMLElement.prototype.updateText = function (text) {
     this.innerText = text;
@@ -112,7 +114,9 @@ class SoochakSubscribe extends HTMLElement {
                     userVisibleOnly: true,
                     applicationServerKey: base64UrlToUint8Array(this.#key)
                 });
-                await api.put(`/api/v1/web-push/subscriber`, subscription);
+                const saved = await api.put(`/api/v1/web-push/subscriber`, subscription);
+                // The server id is needed later to delete this record on unsubscribe.
+                if (saved?.data?._id) localStorage.setItem(SUBSCRIBER_ID_KEY, saved.data._id);
             }
             await this.checkSubscription();
         } catch (error) {
@@ -126,9 +130,12 @@ class SoochakSubscribe extends HTMLElement {
                 await registration.pushManager.getSubscription();
 
             if (subscription) {
-                // Ideally remove the server-side record too.
                 await subscription.unsubscribe();
-                await api.delete(`/api/v1/web-push/subscriber`, subscription);
+                const subscriberId = localStorage.getItem(SUBSCRIBER_ID_KEY);
+                if (subscriberId) {
+                    await api.delete(`/api/v1/web-push/subscriber/${subscriberId}`);
+                    localStorage.removeItem(SUBSCRIBER_ID_KEY);
+                }
             }
 
             await this.checkSubscription();

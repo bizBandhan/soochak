@@ -1,5 +1,4 @@
 import bcrypt from "bcryptjs";
-import { eventStream } from "express-web-tools";
 import permissionModel from "../permission/model.js";
 import roleModel from "../role/model.js";
 import userModel from "../user/model.js";
@@ -29,7 +28,7 @@ const OWNER_ACTIONS = [
     "reSort"
 ];
 
-eventStream.onEvent("organization-created", async ({ origin, owner }) => {
+export const provisionOrganizationOwner = async ({ origin, owner }) => {
     await roleModel.updateOne(
         { name: OWNER_ROLE.name, origin },
         { $setOnInsert: { ...OWNER_ROLE, origin } },
@@ -54,7 +53,7 @@ eventStream.onEvent("organization-created", async ({ origin, owner }) => {
     const password = await bcrypt.hash(owner.password, 10);
     const ownerDetails = { ...owner };
     delete ownerDetails.password;
-    await userModel.updateOne(
+    const result = await userModel.updateOne(
         { user: owner.user, origin },
         {
             $setOnInsert: {
@@ -67,4 +66,13 @@ eventStream.onEvent("organization-created", async ({ origin, owner }) => {
         },
         { upsert: true, runValidators: true }
     );
-});
+
+    // An existing account must never be claimed (or logged into) through registration.
+    if (!result.upsertedCount) {
+        const error = new Error("Owner username is already taken");
+        error.code = "OWNER_EXISTS";
+        throw error;
+    }
+
+    return userModel.findOne({ user: owner.user, origin });
+};

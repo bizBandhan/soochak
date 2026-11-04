@@ -90,8 +90,8 @@ export const SubscribersPage: React.FC = () => {
     if (!subscriberToDelete) return;
     setIsDeleting(true);
     try {
-      await webPushService.deleteSubscriberByEndpoint(subscriberToDelete.endpoint);
-      setSubscribers(subscribers.filter((s) => s.endpoint !== subscriberToDelete.endpoint));
+      await webPushService.deleteSubscriber(subscriberToDelete._id);
+      setSubscribers(subscribers.filter((s) => s._id !== subscriberToDelete._id));
       setSubscriberToDelete(null);
     } finally {
       setIsDeleting(false);
@@ -206,7 +206,7 @@ export const SubscribersPage: React.FC = () => {
       <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden shadow-xs">
         <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between text-xs font-semibold text-slate-300">
           <span>Active Subscribers ({filtered.length})</span>
-          <span className="text-[11px] font-mono text-slate-500">Method: DELETE /web-push/subscriber</span>
+          <span className="text-[11px] font-mono text-slate-500">Method: DELETE /web-push/subscriber/{'{id}'}</span>
         </div>
 
         {filtered.length === 0 ? (

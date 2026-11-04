@@ -351,7 +351,7 @@ export const DashboardOverviewPage: React.FC = () => {
               <StatusBadge status="connected" label="Connected" />
             </div>
             <p className="text-[11px] text-slate-400">
-              GET, POST, PUT, PATCH, DELETE subscriber endpoints.
+              GET, POST, PUT collection and GET, PUT, DELETE, PATCH by id.
             </p>
           </div>
 

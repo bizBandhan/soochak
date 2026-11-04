@@ -119,7 +119,7 @@ sequenceDiagram
 
     Visitor->>Site: Unsubscribe
     Site->>Browser: Unsubscribe browser subscription
-    Site->>API: DELETE /api/v1/web-push/subscriber (endpoint)
+    Site->>API: DELETE /api/v1/web-push/subscriber/{id} (id returned by the earlier PUT)
     API->>DB: Delete subscriber record
     API-->>Site: Delete response
 ```

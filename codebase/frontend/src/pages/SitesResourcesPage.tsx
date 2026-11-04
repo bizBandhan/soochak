@@ -150,7 +150,10 @@ export async function registerSoochakSubscriber(subscriberTag = 'product_updates
     }),
   });
 
-  return await response.json();
+  const saved = await response.json();
+  // Keep the server id so you can unsubscribe later with DELETE /api/v1/web-push/subscriber/<id>.
+  if (saved?.data?._id) localStorage.setItem('soochak-subscriber-id', saved.data._id);
+  return saved;
 }`;
 
   const workerPreservationCode = `// 2. Service Worker Integration (Preserving Your Existing SW)
