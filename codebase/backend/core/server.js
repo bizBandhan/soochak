@@ -5,12 +5,15 @@ import cors from "cors";
 import pureIP from "express-pureip";
 import cookieParser from "cookie-parser"
 import moduleRoutes from "../module/index.js";
+import { normalizeHostedDomain } from "../module/auth/organization/hostname.js";
 (async () => {
     configTest([
         "PORT",
         "DB",
-        "JWT_SECRET"
+        "JWT_SECRET",
+        "HOSTED_DOMAIN"
     ])
+    normalizeHostedDomain(process.env.HOSTED_DOMAIN);
 
     await mongoose.connect(process.env.DB);
 

@@ -124,7 +124,7 @@ paths:
     get:
       tags: [User administration]
       summary: List all users
-      description: Requires the `view:all` grant on `auth:user`. Password and date of birth are never returned.
+      description: Each hostname is a personal workspace with only its signed-in user. Requires the `view:all` grant on `auth:user`. Password and date of birth are never returned.
       operationId: listUsers
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -138,7 +138,7 @@ paths:
     post:
       tags: [User administration]
       summary: Query users
-      description: Requires `view:all` on `auth:user`. The body is an equality filter on `_id`, `user`, `email`, `role`, `sex`, `phone`, `timezone`, `name.first` or `name.last`; operators and other fields are rejected with 400.
+      description: Each hostname is a personal workspace with only its signed-in user. Requires `view:all` on `auth:user`. The body is an equality filter on `_id`, `user`, `email`, `role`, `sex`, `phone`, `timezone`, `name.first` or `name.last`; operators and other fields are rejected with 400.
       operationId: queryUsers
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -157,25 +157,12 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
     put:
       tags: [User administration]
-      summary: Create a user
-      description: Requires `edit:all` on `auth:user`. Only an owner can create an owner. The password is stored hashed and never returned.
+      summary: User creation is unsupported
+      description: Each hostname is a personal workspace for one user. Additional user accounts cannot be created in the prototype; organization registration provisions the workspace owner. The request body is ignored.
       operationId: createUser
       security: [{ bearerAuth: [] }, { authCookie: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: './schemas.yml#/components/schemas/UserCreateInput' }
       responses:
-        '201':
-          description: User created.
-          content:
-            application/json:
-              schema: { $ref: './schemas.yml#/components/schemas/CrudItemResponse' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '405': { description: Additional users are not supported in a personal workspace. }
   /auth/user/{id}:
     parameters: [{ $ref: '#/components/parameters/ResourceId' }]
     get:
@@ -713,7 +700,7 @@ paths:
     put:
       tags: [Organization administration]
       summary: Register an organization
-      description: Creates an organization record scoped to the request origin, synchronously provisions the owner user, owner role and permissions (rolled back on failure), and signs the owner in via an httpOnly `authorization` cookie (`Bearer <JWT>`); the token is not in the response body. Returns 409 for a duplicate name/slug or an existing owner username. Hostname verification is not implemented.
+      description: Registration is available only on the configured platform signup hostname. The organization slug determines the user's personal workspace hostname under HOSTED_DOMAIN. The organization, owner, role and permission records are created under that hostname; failures roll back the organization. Registration does not issue a session cookie on the shared signup hostname. The response includes workspaceHost and workspaceUrl, and the owner must sign in on that hostname. Returns 400 for an invalid or reserved slug, 403 on a non-platform signup host, and 409 when the slug or owner username is already in use.
       operationId: registerOrganization
       requestBody:
         required: true
@@ -722,10 +709,13 @@ paths:
             schema: { $ref: './schemas.yml#/components/schemas/OrganizationRegistrationRequest' }
       responses:
         '201':
-          description: Organization record created.
+          description: Organization and personal workspace created. Sign in at the returned workspaceUrl.
           content:
             application/json:
-              schema: { $ref: './schemas.yml#/components/schemas/OrganizationItemResponse' }
+              schema: { $ref: './schemas.yml#/components/schemas/OrganizationRegistrationResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /auth/organization/{id}:
     parameters: [{ $ref: '#/components/parameters/ResourceId' }]
     get:
@@ -810,7 +800,7 @@ components:
         application/json:
           schema: { $ref: './schemas.yml#/components/schemas/Error' }
     Forbidden:
-      description: The authenticated user lacks the permission grant (or role) for this operation.
+      description: The request is forbidden for the current host or the authenticated user lacks permission for this operation.
       content:
         application/json:
           schema: { $ref: './schemas.yml#/components/schemas/Error' }

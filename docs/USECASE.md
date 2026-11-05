@@ -17,19 +17,19 @@
 ## UC-00: Submit and review a self-service organization
 
 **Goal:** Create an organization and its first owner account, then activate tenant access only after operator approval and successful provisioning.
-**Preconditions:** The hosted SaaS signup page is available. The customer website origin is collected separately from the Soochak dashboard/API tenant hostname.
+**Preconditions:** The hosted SaaS signup page is available. The customer website origin is collected separately from the user's Soochak dashboard/API hostname, which identifies the prototype workspace.
 **Trigger:** Prospective owner submits the public organization registration form.
 
 1. Owner submits organization name/slug, canonical customer website origin, owner details, contact email, and an owner-chosen password.
-2. System creates a pending-review organization and an owner account that is locked out of tenant dashboard/API access; it hashes the password and starts owner/role/permission provisioning.
+2. System creates a pending-review organization and an owner account that is locked out of workspace dashboard/API access; it hashes the password and starts owner/role/permission provisioning.
 3. System reports a pending state and emails status updates to the submitted contact address. The address is not treated as verified identity.
 4. Platform operator reviews the request from the protected management portal (`mgmt.soochak.optiwari.duckdns.org` locally, `mgmt.soochak.bizbandhan.com` in production).
-5. On approval, the system activates tenant access only after required provisioning succeeds and assigns a tenant host (`[tenant].soochak.optiwari.duckdns.org` locally, `[tenant].soochak.bizbandhan.com` in production).
-6. On request-changes, the system emails the reason; owner signs in with the chosen password to a restricted registration area, edits the request, and resubmits. This does not grant tenant access.
+5. On approval, the system activates workspace access only after required provisioning succeeds and assigns the user's unique Soochak hostname from the organization slug (`<slug>.soochak.optiwari.duckdns.org` locally, `<slug>.soochak.bizbandhan.com` in production).
+6. On request-changes, the system emails the reason; owner signs in with the chosen password to a restricted registration area, edits the request, and resubmits. This does not grant workspace access.
 7. On rejection, the system emails the reason; owner must submit a new registration.
 8. The response and email never expose the submitted password or password hash.
 
-**Alternate flows:** Invalid organization/owner data returns actionable field errors. Provisioning failure leaves the organization inactive and visible for operator recovery. Status-email delivery failure must not activate a tenant; retry/notification recovery behavior remains to be defined. Email ownership verification, customer website/dashboard hostname verification, custom dashboard domains, and plan payments are deferred.
+**Alternate flows:** Invalid organization/owner data returns actionable field errors. Provisioning failure leaves the organization inactive and visible for operator recovery. Status-email delivery failure must not activate a workspace; retry/notification recovery behavior remains to be defined. Email ownership verification, customer website/dashboard hostname verification, custom dashboard domains, and plan payments are deferred.
 **Postconditions:** The organization is active only after operator approval and successful provisioning, or remains pending/changes-requested/rejected with a visible status and safe next step.
 
 ## UC-00b: Create an organization directly as a platform operator
@@ -40,12 +40,12 @@
 
 1. Operator enters organization and owner details, including an initial owner password.
 2. System creates the organization and starts owner/role/permission provisioning without applicant review.
-3. System keeps the tenant inactive until provisioning succeeds, then assigns its Soochak tenant host (`[tenant].soochak.optiwari.duckdns.org` locally, `[tenant].soochak.bizbandhan.com` in production) and activates it.
+3. System keeps workspace access disabled until provisioning succeeds, then assigns the owner's unique Soochak hostname from the organization slug (`<slug>.soochak.optiwari.duckdns.org` locally, `<slug>.soochak.bizbandhan.com` in production) and activates it.
 4. Operator communicates the initial password to the owner outside the system.
 5. Owner changes the initial password at first login.
 
 **Alternate flows:** Provisioning failure leaves the organization inactive and exposes recovery actions to the operator. Credentials are never logged or placed in URLs or documentation.
-**Postconditions:** Tenant is active after successful provisioning, or inactive with an actionable operator-visible failure state.
+**Postconditions:** Workspace access is active after successful provisioning, or remains disabled with an actionable operator-visible failure state.
 
 ## UC-00a: Complete First-Run Self-Hosted Setup
 

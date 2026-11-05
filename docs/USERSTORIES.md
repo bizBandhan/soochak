@@ -3,7 +3,7 @@
 **Product:** Soochak by BizBandhan  
 **Status:** Draft backlog; priorities are proposed for MVP planning.
 
-The running prototype is limited to internal organizations and test devices. The target hosted-SaaS model uses a tenant-specific Soochak dashboard/API hostname, separate from the customer's website origin; users belong to one organization for now. Self-service signup requires operator review, while direct operator-created organizations skip applicant review. Email/hostname ownership verification, custom dashboard domains, and payment are deferred. Verification is manual; automated tests are planned after the prototype.
+The running prototype is limited to internal organizations and test devices. During the prototype, each user has one unique Soochak dashboard/API hostname, separate from the customer's website origin, and the hostname is the sole workspace identifier and scope key. Do not introduce a separate tenant entity or ID until after market validation. Self-service signup requires operator review, while direct operator-created organizations skip applicant review. Email/hostname ownership verification, custom dashboard domains, and payment are deferred. Verification is manual; automated tests are planned after the prototype.
 
 ## US-00 — Submit an organization for review (Must)
 As a prospective organization owner, I want to submit my organization, primary website origin, and owner account details so that Soochak can review and set up my tenant.

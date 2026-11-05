@@ -9,6 +9,7 @@ import { apiClient, SEED_ORGANIZATION, SEED_USER, SEED_VAPID_CONFIG, SEED_SUBSCR
 import type {
   Organization,
   OrganizationRegistrationPayload,
+  OrganizationRegistrationResult,
   UserProfile,
   PushSubscriber,
   NotificationPayload,
@@ -227,17 +228,36 @@ export const organizationService = {
    * PUT /auth/organization
    * Register new organization and emit async owner provisioning
    */
-  async register(payload: OrganizationRegistrationPayload): Promise<{
-    organization: Organization;
-    provisioningStatus: string;
-    warningNote: string;
-  }> {
+  async register(payload: OrganizationRegistrationPayload): Promise<OrganizationRegistrationResult> {
     try {
       const res = await apiClient.api.put('/auth/organization', payload);
+      let responseData: unknown = res;
+      for (let depth = 0; depth < 2 && isRecord(responseData) && 'data' in responseData; depth += 1) {
+        responseData = responseData.data;
+      }
+      const organizationData =
+        isRecord(responseData) && 'organization' in responseData
+          ? responseData.organization
+          : responseData;
+      if (!isRecord(organizationData)) {
+        throw new Error('The registration response did not include the created workspace.');
+      }
+      const id = typeof organizationData._id === 'string' ? organizationData._id : '';
+      const name = typeof organizationData.name === 'string' ? organizationData.name : '';
+      const slug = typeof organizationData.slug === 'string' ? organizationData.slug : '';
+      const workspaceHost =
+        typeof organizationData.workspaceHost === 'string' ? organizationData.workspaceHost : '';
+      const workspaceUrl =
+        typeof organizationData.workspaceUrl === 'string' ? organizationData.workspaceUrl : '';
+      if (!id || !name || !slug || !workspaceHost || !workspaceUrl) {
+        throw new Error('The registration response did not include valid organization and workspace details.');
+      }
       return {
-        organization: res.data || res,
+        organization: { _id: id, name, slug },
+        workspaceHost,
+        workspaceUrl,
         provisioningStatus: 'owner_provisioned',
-        warningNote: 'Organization and owner account created. You are signed in.',
+        warningNote: 'Your personal workspace is ready. Sign in on its hostname using the credentials you just created.',
       };
     } catch (err: any) {
       if (apiClient.isSimulationMode) {
@@ -258,10 +278,21 @@ export const organizationService = {
           status: 'pending_provisioning',
         };
         simOrg = newOrg;
+        const platformRoots = [
+          'soochak.optiwari.duckdns.org',
+          'soochak.bizbandhan.com',
+        ];
+        const currentHostname = window.location.hostname.toLowerCase();
+        const platformRoot = platformRoots.find((root) =>
+          currentHostname === root || currentHostname.endsWith(`.${root}`),
+        ) || currentHostname;
+        const workspaceHost = `${payload.slug.toLowerCase()}.${platformRoot}`;
         return {
-          organization: newOrg,
-          provisioningStatus: 'accepted_event_emitted',
-          warningNote: 'Organization record created. Event-driven owner provisioning is currently queued and pending execution.',
+          organization: { _id: newOrg._id, name: newOrg.name, slug: newOrg.slug },
+          workspaceHost,
+          workspaceUrl: `https://${workspaceHost}`,
+          provisioningStatus: 'owner_provisioned',
+          warningNote: 'Simulation only: no workspace was created by the backend.',
         };
       }
       throw err;

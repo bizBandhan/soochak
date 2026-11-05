@@ -85,11 +85,26 @@ const userSchema = new MongooseModel(
             type: String,
             select: false
         },
-        role:{
-            type:String,
+        role: {
+            type: String
+        },
+        personalWorkspace: {
+            type: Boolean,
+            default: false,
+            immutable: true,
+            select: false
         }
     }),
     [
+        // A dashboard hostname belongs to exactly one personal workspace owner.
+        [
+            {
+                origin: 1
+            }, {
+                unique: true,
+                partialFilterExpression: { personalWorkspace: true }
+            }
+        ],
         [
             {
                 user: 1,

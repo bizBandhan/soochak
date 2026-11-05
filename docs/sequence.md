@@ -1,10 +1,39 @@
 # Soochak Sequence Diagrams
 
-These diagrams describe the target product flows alongside implementation boundaries. Dotted arrows and notes identify behavior that is planned or incomplete. The current API contract is documented in `codebase/backend/public/api-docs/openapi.yml`; the registration workflow below is a target, not a description of the current endpoint behavior.
+These diagrams describe current prototype behavior and target product flows. Dotted arrows and notes identify behavior that is planned or incomplete. The current API contract is documented in `codebase/backend/public/api-docs/openapi.yml`.
 
-## Public self-service registration and review
+## Current prototype workspace registration
 
-Public signup collects the customer's website origin separately from its Soochak dashboard/API tenant hostname. For hosted SaaS, the tenant hostname is a Soochak subdomain by default. Submission creates a pending organization and owner account without tenant dashboard/API access; operator approval and successful provisioning are both required before tenant access is enabled. Email notifications use the submitted contact address, but email ownership verification is deferred.
+The configured platform signup hostname accepts registration. The organization slug determines the user's personal workspace hostname under `HOSTED_DOMAIN`. Registration creates the organization, owner, role, and initial permissions synchronously under that hostname; on success it returns the workspace URL without setting a session cookie on the shared signup host. The owner signs in on the returned hostname.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Owner
+    participant Signup as Platform signup host
+    participant API as Registration API
+    participant DB as MongoDB
+    participant Workspace as Slug-derived workspace host
+
+    Owner->>Signup: Submit organization slug and owner details
+    Signup->>API: PUT /auth/organization
+    API->>API: Validate signup host and derive workspace hostname
+    API->>DB: Create organization under workspace hostname
+    API->>DB: Provision owner, role, and permission grants
+    alt Provisioning succeeds
+        API-->>Signup: Return workspaceHost and workspaceUrl
+        Signup-->>Owner: Link to assigned workspace sign-in
+        Owner->>Workspace: Sign in with registered credentials
+        Workspace-->>Owner: Set host-scoped session cookie
+    else Provisioning fails
+        API->>DB: Roll back organization record
+        API-->>Signup: Return registration error
+    end
+```
+
+## Planned public self-service registration and review
+
+**Prototype tenancy decision:** each user is assigned one unique Soochak dashboard/API hostname, and that hostname alone identifies and scopes the prototype workspace. There is no separate tenant entity or tenant ID during the prototype. The customer's website origin is collected separately for Web Push setup. Keep this hostname-only model through market validation; any later separate tenant concept requires an explicit migration plan. Submission creates a pending organization and owner account without workspace dashboard/API access; operator approval and successful provisioning are both required before access is enabled. Email notifications use the submitted contact address, but email ownership verification is deferred.
 
 ```mermaid
 sequenceDiagram
@@ -17,14 +46,14 @@ sequenceDiagram
     participant Mail as Email service
     participant Mgmt as Protected operator portal
     participant Operator
-    participant Tenant as Tenant dashboard/API
+    participant Workspace as User's Soochak dashboard/API
 
     Owner->>Signup: Submit organization, customer website origin, owner details/password
-    Signup--)API: Submit registration (target API contract; existing PUT route lacks review workflow)
-    API->>DB: Create pending organization and owner account without tenant access
+    Signup--)API: Submit registration for operator review (planned)
+    API->>DB: Create pending organization and owner account without workspace access
     API--)Provision: Create owner role and initial permission grants
     Provision-->>API: Report provisioning result
-    API-->>Signup: Registration received; tenant access remains locked
+    API-->>Signup: Registration received; workspace access remains locked
     Signup-->>Owner: Show pending-review status
     API--)Mail: Send receipt/status email to submitted contact address
 
@@ -38,14 +67,14 @@ sequenceDiagram
         Mgmt->>API: Record approval
         API->>DB: Activate only if required provisioning succeeded
         API--)Mail: Send approval status
-        Owner->>Tenant: Sign in with signup password
-        Tenant-->>Owner: Grant access to tenant dashboard/API
+        Owner->>Workspace: Sign in at assigned Soochak hostname
+        Workspace-->>Owner: Grant access to hostname-scoped workspace
     else Request changes
         Operator->>Mgmt: Request changes
         Mgmt->>API: Record requested changes and reason
         API--)Mail: Send status notice
         Owner->>Signup: Sign in with signup password
-        Signup-->>Owner: Restricted registration area; no tenant access
+        Signup-->>Owner: Restricted registration area; no workspace access
         Owner->>Signup: Edit and resubmit registration
         Signup->>API: Save changes; return to pending review
     else Reject
@@ -69,7 +98,7 @@ sequenceDiagram
     participant DB as MongoDB
     participant Provision as Owner/access provisioning
     participant Owner
-    participant Tenant as Tenant dashboard/API
+    participant Workspace as User's Soochak dashboard/API
 
     Operator->>Mgmt: Enter organization, customer website origin, owner details, initial password
     Mgmt->>API: Create organization directly (no applicant review)
@@ -78,18 +107,18 @@ sequenceDiagram
     Provision->>DB: Store hashed credentials and access records
     Provision-->>API: Provisioning result
     alt Provisioning succeeds
-        API->>DB: Activate organization and assign tenant dashboard/API host
+        API->>DB: Activate organization and assign user's unique dashboard/API hostname
         API-->>Mgmt: Organization active
         Operator-->>Owner: Communicate initial password outside the system
-        Owner->>Tenant: Sign in
-        Tenant-->>Owner: Require password change at first login
+        Owner->>Workspace: Sign in at assigned Soochak hostname
+        Workspace-->>Owner: Require password change at first login
     else Provisioning fails
         API->>DB: Keep organization inactive and record provisioning failure
         API-->>Mgmt: Show failure; allow operator intervention/retry
     end
 ```
 
-The operator portal is hosted at `mgmt.soochak.optiwari.duckdns.org` in local development and `mgmt.soochak.bizbandhan.com` in production. Tenant dashboard/API hosts use `[tenant].soochak.optiwari.duckdns.org` locally and `[tenant].soochak.bizbandhan.com` in production. Custom dashboard domains, email/hostname ownership verification, and plan payments are deferred. Self-hosted installations are a separate deployment path; central configuration/update synchronization is later-stage.
+The operator portal is hosted at `mgmt.soochak.optiwari.duckdns.org` in local development and `mgmt.soochak.bizbandhan.com` in production. Each prototype user receives one unique dashboard/API hostname derived from the organization slug: `<slug>.soochak.optiwari.duckdns.org` locally and `<slug>.soochak.bizbandhan.com` in production. Custom dashboard domains, email/hostname ownership verification, and plan payments are deferred. Self-hosted installations are a separate deployment path; central configuration/update synchronization is later-stage.
 
 ## Website subscription lifecycle
 
@@ -167,7 +196,7 @@ sequenceDiagram
 
 ## Current boundaries
 
-- The target hosted model assigns each organization a Soochak tenant dashboard/API subdomain. The current backend instead derives scope from the request hostname and still needs tenant-host-aware authorization.
+- For the prototype, each user has one unique Soochak hostname, and request-host resolution identifies the user's workspace scope. Keep this separate from the customer's website origin; do not add a separate tenant entity/ID until after market validation.
 - Login, complete authorization, and provisioning-status/recovery are not complete. Email and hostname ownership verification are deferred from initial activation.
 - Subscriber routes exist, but the SDK/consent lifecycle and end-to-end subscription flow still need implementation and verification.
 - NATS JetStream and separate workers are planned architecture, not part of the current deployment.

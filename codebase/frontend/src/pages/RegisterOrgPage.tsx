@@ -6,7 +6,7 @@
 
 import React, { useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   Building2,
   User,
@@ -55,12 +55,12 @@ const FieldError: React.FC<{ message?: string }> = ({ message }) =>
 
 export const RegisterOrgPage: React.FC = () => {
   const { registerOrganization } = useAuth();
-  const navigate = useNavigate();
 
   const {
     register,
     handleSubmit,
     setValue,
+    reset,
     getValues,
     control,
     watch,
@@ -91,6 +91,9 @@ export const RegisterOrgPage: React.FC = () => {
     success: boolean;
     orgId: string;
     slug: string;
+    orgName: string;
+    workspaceHost: string;
+    workspaceUrl: string;
     warningNote: string;
   } | null>(null);
 
@@ -135,8 +138,12 @@ export const RegisterOrgPage: React.FC = () => {
         success: true,
         orgId: res.organization._id,
         slug: res.organization.slug,
+        orgName: values.orgName.trim(),
+        workspaceHost: res.workspaceHost,
+        workspaceUrl: res.workspaceUrl,
         warningNote: res.warningNote,
       });
+      reset();
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to register organization.');
     }
@@ -151,7 +158,7 @@ export const RegisterOrgPage: React.FC = () => {
           <span>Register Organization</span>
         </h1>
         <p className="mt-1 text-xs text-slate-400">
-          Provision a dedicated Web Push tenant and register initial organization owner credentials.
+          Create a personal workspace and register its owner credentials.
         </p>
       </div>
 
@@ -171,7 +178,7 @@ export const RegisterOrgPage: React.FC = () => {
       */}
 
       {provisioningResult ? (
-        /* Honest Pending Provisioning Screen */
+        /* Registration completes on the shared signup host; sign in at the assigned workspace host. */
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-6 sm:p-8 space-y-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-cyan-950 border border-cyan-800 flex items-center justify-center text-cyan-400">
@@ -179,7 +186,7 @@ export const RegisterOrgPage: React.FC = () => {
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">
-                Organization Record Created: {getValues('orgName')}
+                Personal Workspace Created: {provisioningResult.orgName}
               </h2>
               <p className="text-xs text-slate-400 font-mono">
                 Organization ID: {provisioningResult.orgId} · Slug: {provisioningResult.slug}
@@ -190,28 +197,27 @@ export const RegisterOrgPage: React.FC = () => {
           <div className="p-4 rounded-lg border border-cyan-900/60 bg-cyan-950/30 text-xs text-cyan-200 space-y-2">
             <div className="flex items-center gap-2 font-semibold text-cyan-300">
               <Clock className="w-4 h-4 text-cyan-400" />
-              <span>Event-Driven Provisioning In Progress</span>
+              <span>Sign In to Your Workspace</span>
             </div>
             <p className="text-[11px] leading-relaxed text-slate-300">
               {provisioningResult.warningNote}
             </p>
             <p className="text-[11px] leading-relaxed text-slate-400">
-              In accordance with Soochak security specifications: the submitted owner password was dispatched securely over the API request and has been permanently purged from frontend memory.
+              Your password was sent to the server over HTTPS and cleared from the registration form. Registration does not create a sign-in cookie on this shared hostname; sign in on your assigned workspace hostname.
             </p>
           </div>
 
           <div className="border-t border-slate-800 pt-5 flex items-center justify-between">
             <div className="text-xs text-slate-400">
-              You can now proceed to the organization dashboard.
+              Workspace: <span className="font-mono text-cyan-300">{provisioningResult.workspaceHost}</span>
             </div>
-            <button
-              type="button"
-              onClick={() => navigate('/')}
+            <a
+              href={`${provisioningResult.workspaceUrl}/login`}
               className="flex items-center gap-2 px-4 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition shadow-sm"
             >
-              <span>Go to Dashboard</span>
+              <span>Go to Workspace Sign-In</span>
               <ArrowRight className="w-4 h-4" />
-            </button>
+            </a>
           </div>
         </div>
       ) : (
@@ -228,7 +234,7 @@ export const RegisterOrgPage: React.FC = () => {
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
               <Building2 className="w-4 h-4" />
-              1. Organization Tenant
+              1. Personal Workspace
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -251,7 +257,13 @@ export const RegisterOrgPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  {...register('slug', { required: 'Slug is required.' })}
+                  {...register('slug', {
+                    required: 'Slug is required.',
+                    pattern: {
+                      value: /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/,
+                      message: 'Use 1-63 letters, numbers, or internal hyphens.',
+                    },
+                  })}
                   className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-cyan-300 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                   placeholder="e.g. acme-tech"
                 />

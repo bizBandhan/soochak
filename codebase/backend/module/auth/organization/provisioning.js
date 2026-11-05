@@ -29,6 +29,12 @@ const OWNER_ACTIONS = [
 ];
 
 export const provisionOrganizationOwner = async ({ origin, owner }) => {
+    if (await userModel.exists({ origin })) {
+        const error = new Error("This hostname is already assigned to a user");
+        error.code = "HOST_ALREADY_ASSIGNED";
+        throw error;
+    }
+
     await roleModel.updateOne(
         { name: OWNER_ROLE.name, origin },
         { $setOnInsert: { ...OWNER_ROLE, origin } },
@@ -53,19 +59,35 @@ export const provisionOrganizationOwner = async ({ origin, owner }) => {
     const password = await bcrypt.hash(owner.password, 10);
     const ownerDetails = { ...owner };
     delete ownerDetails.password;
-    const result = await userModel.updateOne(
-        { user: owner.user, origin },
-        {
-            $setOnInsert: {
-                ...ownerDetails,
-                user: owner.user,
-                password,
-                role: OWNER_ROLE.name,
-                origin
+    let result;
+    try {
+        result = await userModel.updateOne(
+            { user: owner.user, origin },
+            {
+                $setOnInsert: {
+                    ...ownerDetails,
+                    user: owner.user,
+                    password,
+                    role: OWNER_ROLE.name,
+                    origin,
+                    personalWorkspace: true
+                }
+            },
+            { upsert: true, runValidators: true }
+        );
+    } catch (error) {
+        if (error.code === 11000) {
+            if (error.keyPattern?.origin && Object.keys(error.keyPattern).length === 1) {
+                const hostError = new Error("This hostname is already assigned to a user");
+                hostError.code = "HOST_ALREADY_ASSIGNED";
+                throw hostError;
             }
-        },
-        { upsert: true, runValidators: true }
-    );
+            const usernameError = new Error("Owner username is already taken");
+            usernameError.code = "OWNER_EXISTS";
+            throw usernameError;
+        }
+        throw error;
+    }
 
     // An existing account must never be claimed (or logged into) through registration.
     if (!result.upsertedCount) {

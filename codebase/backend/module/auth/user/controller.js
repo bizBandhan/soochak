@@ -1,32 +1,17 @@
-import bcrypt from "bcryptjs";
 import { CrudController } from "express-web-tools";
 import userModel from "./model.js";
 import roleModel from "../role/model.js";
 import {
     httpError,
     buildProfileUpdate,
-    saveProfileUpdate,
-    MIN_PASSWORD_LENGTH
+    saveProfileUpdate
 } from "./validation.js";
 
 // Login, logout and /me live in ../session/router.js; this controller is for the CRUD routes.
 const OWNER_ROLE = "owner";
-const USERNAME_PATTERN = /^[A-Za-z0-9._-]{3,64}$/;
 const PROFILE_FIELDS = ["name", "sex", "dob", "email", "phone", "timezone", "profilePicture"];
-const CREATE_FIELDS = ["user", "password", "role", ...PROFILE_FIELDS];
 
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-
-// Turns buildProfileUpdate's "name.first" style paths back into a nested object.
-const expandPaths = (flat) => {
-    const result = {};
-    for (const [path, value] of Object.entries(flat)) {
-        const [head, ...rest] = path.split(".");
-        if (rest.length) (result[head] ??= {})[rest.join(".")] = value;
-        else result[head] = value;
-    }
-    return result;
-};
 
 // CrudController wraps every failure in a plain Error, so map the known ones back to HTTP errors.
 const mapError = (error) => {
@@ -61,7 +46,7 @@ class UserController extends CrudController {
         return name;
     }
 
-    // Only an owner may create, edit, demote or delete owners.
+    // Only an owner may edit, demote or delete owner accounts.
     #assertOwnerAccess(role) {
         if (role === OWNER_ROLE && this.request.user?.role !== OWNER_ROLE) {
             throw httpError(403, "Only an owner can manage owner accounts");
@@ -73,37 +58,8 @@ class UserController extends CrudController {
         if (owners <= 1) throw httpError(409, "The organization must keep at least one owner");
     }
 
-    async create(data) {
-        try {
-            if (!isPlainObject(data)) throw httpError(400, "Request body must be a JSON object");
-            const unknown = Object.keys(data).filter((key) => !CREATE_FIELDS.includes(key));
-            if (unknown.length) throw httpError(400, `Unknown fields: ${unknown.join(", ")}`);
-
-            const username = typeof data.user === "string" ? data.user.trim() : "";
-            if (!USERNAME_PATTERN.test(username)) {
-                throw httpError(400, "Username must be 3-64 characters: letters, digits, dot, underscore or hyphen");
-            }
-            if (typeof data.password !== "string" || data.password.length < MIN_PASSWORD_LENGTH) {
-                throw httpError(400, `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`);
-            }
-
-            const role = await this.#resolveRole(data.role);
-            this.#assertOwnerAccess(role);
-
-            const profile = Object.fromEntries(PROFILE_FIELDS.filter((key) => key in data).map((key) => [key, data[key]]));
-            const { update } = buildProfileUpdate(profile, PROFILE_FIELDS);
-
-            const created = await super.create({
-                ...expandPaths(update),
-                user: username,
-                role,
-                password: await bcrypt.hash(data.password, 10)
-            });
-            // Reload so the hash and other hidden fields never reach the response.
-            return await userModel.findOne({ _id: created._id, origin: this.request.origin });
-        } catch (error) {
-            throw mapError(error);
-        }
+    async create() {
+        throw httpError(405, "Additional user accounts are not supported in a personal workspace");
     }
 
     async read(id) {

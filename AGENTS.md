@@ -14,7 +14,7 @@ No formatter, linter, or language-specific style configuration is present yet. K
 
 ## API Conventions
 
-All CRUD resources follow one method policy:
+CRUD resources follow one method policy, except the prototype user collection (`PUT /api/v1/auth/user` returns 405 because each hostname has exactly one user):
 
 | Method and path | Purpose |
 |---|---|

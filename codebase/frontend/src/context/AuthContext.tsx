@@ -5,7 +5,12 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import type { UserProfile, Organization, OrganizationRegistrationPayload } from '../types';
+import type {
+  UserProfile,
+  Organization,
+  OrganizationRegistrationPayload,
+  OrganizationRegistrationResult,
+} from '../types';
 import { authService, organizationService } from '../services/apiAdapters';
 import { apiClient, SEED_ORGANIZATION } from '../services/apiClient';
 
@@ -18,11 +23,7 @@ interface AuthContextType {
   isSimulationMode: boolean;
   setSimulationMode: (enabled: boolean) => void;
   login: (credentials: { user: string; password: string }) => Promise<{ token: string | null; user: UserProfile }>;
-  registerOrganization: (payload: OrganizationRegistrationPayload) => Promise<{
-    organization: Organization;
-    provisioningStatus: string;
-    warningNote: string;
-  }>;
+  registerOrganization: (payload: OrganizationRegistrationPayload) => Promise<OrganizationRegistrationResult>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<UserProfile>;
   changePassword: (passwords: { currentPassword: string; newPassword: string }) => Promise<{ message: string }>;
@@ -94,32 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const registerOrganization = async (payload: OrganizationRegistrationPayload) => {
     setIsLoading(true);
     try {
-      const result = await organizationService.register(payload);
-      setOrganization(result.organization);
-      // The server has started the session; load the real owner. The locally built profile is only a
-      // fallback for simulation mode, where no session exists.
-      let ownerUser: UserProfile;
-      try {
-        ownerUser = await authService.getCurrentUser();
-      } catch {
-        ownerUser = {
-          _id: 'usr_' + payload.owner.user,
-          user: payload.owner.user,
-          name: payload.owner.name,
-          email: payload.owner.email,
-          phone: payload.owner.phone,
-          sex: payload.owner.sex,
-          dob: payload.owner.dob,
-          timezone: payload.owner.timezone || 'UTC',
-          organizationId: result.organization._id,
-          roles: ['owner'],
-        };
-      }
-      setUser(ownerUser);
-      // The session lives in an httpOnly cookie set by the server; no token is kept in JS or storage.
-      setToken(null);
-      apiClient.setToken(null);
-      return result;
+      return await organizationService.register(payload);
     } finally {
       setIsLoading(false);
     }

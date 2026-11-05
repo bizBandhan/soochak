@@ -34,6 +34,8 @@ export interface Organization {
   _id: string;
   name: string;
   slug: string;
+  workspaceHost?: string;
+  workspaceUrl?: string;
   canonicalOrigin: string;
   allowedOrigins?: string[];
   limits?: OrganizationLimits;
@@ -64,6 +66,14 @@ export interface OrganizationRegistrationPayload {
     profilePicture?: string;
     password: string;
   };
+}
+
+export interface OrganizationRegistrationResult {
+  organization: Pick<Organization, '_id' | 'name' | 'slug'>;
+  workspaceHost: string;
+  workspaceUrl: string;
+  provisioningStatus: string;
+  warningNote: string;
 }
 
 export interface PushSubscriptionKeys {

@@ -13,46 +13,44 @@ npm install
 npm run dev
 ```
 
-Set `VITE_API_BASE_URL` to the API base URL when needed; the default is `/api/v1`. `npm run build` creates a production build and `npm run lint` runs TypeScript checking (`tsc --noEmit`).
+Set `VITE_API_BASE_URL` to the API base URL when needed; the default is `/api/v1`. The backend `HOSTED_DOMAIN` must match the platform signup host. Wildcard DNS/TLS are managed externally through NGINX Proxy Manager on the `publicweb` network. `npm run build` creates a production build and `npm run lint` runs TypeScript checking (`tsc --noEmit`).
 
 ## Routes and pages
 
 | Frontend route | Page | Current state |
 |---|---|---|
-| `/login` | Login | UI and API adapter exist; demo fallback/auth behavior remains and backend login route is not mounted. |
-| `/register-org` | Organization registration | Target flow collects organization details, customer website origin, and owner credentials; creates a pending organization whose owner cannot access the tenant dashboard/API; and requires platform-operator approval. The existing adapter/backend do not implement these review states. |
+| `/login` | Login | UI and API adapter call the implemented cookie-session login endpoint; sign-in must happen on the user's assigned hostname. |
+| `/register-org` | Organization registration | Prototype registration creates the organization and sole owner under `<slug>.<HOSTED_DOMAIN>`, then links to the workspace sign-in page. It does not set a cookie on the shared signup hostname. Operator review and status emails remain unimplemented. |
 | `/` | Dashboard overview | Dashboard shell exists; metrics use seeded/demo data where APIs are unavailable. |
 | `/notifications` | Notification history | UI exists; backend `GET /web-push/notify` is under development and the adapter returns simulated history on errors. |
 | `/notifications/compose` | Compose and send | UI calls `PUT /api/v1/web-push/notify`; current backend emits an asynchronous event but does not confirm provider delivery. |
 | `/subscribers` | Push subscribers | UI and adapters call subscriber list/query/create/delete endpoints. |
 | `/sites` | Sites and resources | UI exists; site/resource CRUD currently uses in-memory simulated data because resource endpoints are not implemented. |
 | `/config` | Push configuration | UI calls `GET /api/v1/web-push/config` for the public VAPID key. Private keys are not displayed. |
-| `/administration` | Users, roles, and permissions | Read-only seeded data; CRUD routes are not mounted and mutations are disabled. Vendor administration is not implemented. |
+| `/administration` | Users, roles, and permissions | One user is assigned per hostname; additional user creation is unsupported. Role/permission UI remains read-only seeded data because those CRUD routes are not mounted. Vendor administration is not implemented. |
 | `/settings` | Organization settings | UI calls organization list/read/update/delete routes. DNS/hostname verification is not available. |
-| `/profile` | Profile and security | UI calls `/api/v1/me` for profile, password, and logout operations; these routes are not mounted. |
+| `/profile` | Profile and security | UI calls the mounted `/api/v1/me` routes for profile reads/updates, password changes, and logout. |
 
 Authenticated pages are nested under the application layout with a responsive sidebar/navbar. Shared components include notification preview, status badges, endpoint masking, confirmation modal, offline indicator, code snippets, and PWA install control.
 
 ## API integration and simulation
 
-`src/services/apiClient.ts` centralizes the API base URL and bearer token handling. `src/services/apiAdapters.ts` contains auth, organization, Web Push, site, and administration adapters.
+`src/services/apiClient.ts` centralizes the API base URL, cookie-session requests, and legacy bearer token handling. `src/services/apiAdapters.ts` contains auth, organization, Web Push, site, and administration adapters.
 
-The frontend supports seeded in-memory simulation data. Several adapters also fall back to simulated data when a network request fails, while notification history currently falls back on any request error. The auth context creates a seeded demo session when no token is present. Treat the dashboard as a prototype/demo; a successful-looking UI action may be simulated and must not be interpreted as a backend result.
+The frontend supports seeded in-memory simulation data. Several adapters also fall back to simulated data when a network request fails, while notification history currently falls back on any request error. The auth context checks the backend session and does not create a demo login when no session exists. Treat the dashboard as a prototype/demo; a successful-looking UI action may be simulated and must not be interpreted as a backend result.
 
 Known contract gaps to resolve before live use:
 
-- Login UI sends `{ user, password }`, while the current OpenAPI login schema says `{ email, password }`; backend login is not implemented.
-- `AuthContext` starts a seeded demo session when there is no saved token. Organization registration also assigns a locally generated token instead of a server-issued login token; the context token and API-client token are generated separately and can differ.
+- Registration uses the organization slug to assign the personal workspace hostname; owner login happens on that host so the host-scoped httpOnly cookie is set in the correct workspace.
 - Owner profile sex values are lowercase in frontend types, while the backend user model accepts `Male`, `Female`, or `Other`.
-- Organization provisioning status is event-driven; the current API has no status/polling endpoint, so the UI cannot confirm that the owner/role/grants are ready.
 - The target signup flow requires pending-review status emails, approve/request-changes/reject outcomes, a restricted registration area for applicants asked to make changes, and activation only after successful provisioning. These are not implemented.
-- The target operator console is protected and uses `mgmt.soochak.optiwari.duckdns.org` in local development and `mgmt.soochak.bizbandhan.com` in production. Hosted tenant dashboards/APIs use `[tenant].soochak.optiwari.duckdns.org` locally and `[tenant].soochak.bizbandhan.com` in production. The current backend derives tenant scope from request host and does not yet separate tenant dashboard host from customer website origin.
+- The target operator console is protected and uses `mgmt.soochak.optiwari.duckdns.org` in local development and `mgmt.soochak.bizbandhan.com` in production. During the prototype, each user has one unique Soochak dashboard/API hostname (`<slug>.soochak.optiwari.duckdns.org` locally, `<slug>.soochak.bizbandhan.com` in production), and that hostname identifies the personal workspace. The customer's website origin is separate. A separate tenant entity/ID is deferred until after market validation. The backend binds sessions and scopes user data by the request host, and enforces one user per hostname.
 - Direct operator-created organizations skip applicant review; the operator supplies the owner's initial password outside the system and the owner must change it at first login. Operator provisioning must gate activation.
 - Email verification, hostname ownership checks, custom dashboard domains, plan payment, and synchronized updates/configuration for self-hosted deployments are deferred.
 - Sites are local simulation data; there is no resource API contract yet.
 - User/role/permission screens use static seed records; the documented routes are not mounted. Vendor has no backend model.
 - Subscriber/notification fields in demo records (such as tags and delivery stats) exceed the current backend schemas.
-- The API client persists JWTs in `localStorage`; choose and implement the production token/cookie and CSRF model before deployment.
+- The API client still has legacy bearer-token persistence in `localStorage`, while current login uses an httpOnly cookie. Remove or explicitly retain the legacy path and define Secure/SameSite and CSRF protections before deployment.
 
 The backend and the attached OpenAPI files remain the contract authority. Do not add fake writes as a substitute for missing APIs; label demo data and unavailable operations in the UI.
 

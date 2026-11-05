@@ -5,7 +5,7 @@ components:
       additionalProperties: false
       required: [user, password]
       properties:
-        user: { type: string, description: 'Username, unique within the organization.' }
+        user: { type: string, description: 'Username, unique within the assigned Soochak hostname.' }
         password: { type: string, format: password }
     LoginResponse:
       type: object
@@ -70,21 +70,6 @@ components:
         phone: { type: string, description: E.164 format, e.g. +919876543210. }
         timezone: { type: string, description: IANA timezone, e.g. Asia/Kolkata. }
         profilePicture: { type: string, format: uri, maxLength: 2048 }
-    UserCreateInput:
-      type: object
-      additionalProperties: false
-      required: [user, password, role, name, email]
-      properties:
-        user: { type: string, pattern: '^[A-Za-z0-9._-]{3,64}$' }
-        password: { type: string, format: password, minLength: 8 }
-        role: { type: string, description: Must be an existing role of the organization. }
-        name: { $ref: '#/components/schemas/UpdateProfileRequest/properties/name' }
-        sex: { type: string, enum: [Male, Female, Other] }
-        dob: { type: string, format: date, description: Age must be 13-120. }
-        email: { type: string, format: email }
-        phone: { type: string, description: E.164 format. }
-        timezone: { type: string, description: IANA timezone. }
-        profilePicture: { type: string, format: uri, maxLength: 2048 }
     UserUpdateInput:
       type: object
       additionalProperties: false
@@ -121,10 +106,10 @@ components:
       type: object
       additionalProperties: false
       required: [name, slug]
-      description: The organization origin is derived from the request host and cannot be supplied in this body.
+      description: The user's workspace hostname is derived from the slug and server-configured HOSTED_DOMAIN; it cannot be supplied in this body. The customer website origin is separate.
       properties:
         name: { type: string }
-        slug: { type: string }
+        slug: { type: string, pattern: '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$', description: Lowercase DNS label used as the workspace hostname prefix; reserved labels are rejected. }
         plan: { type: string, enum: [free, growth, scale], default: free, description: Selects the quotas; limits are derived server-side. }
         limits: { type: object, additionalProperties: true, readOnly: true, description: Ignored on input; derived from plan. }
         owner:
@@ -154,6 +139,8 @@ components:
         name: { type: string }
         slug: { type: string }
         origin: { type: string }
+        workspaceHost: { type: string, format: hostname }
+        workspaceUrl: { type: string, format: uri, description: HTTPS URL where the owner must sign in. }
         limits: { type: object, additionalProperties: true }
     OrganizationRegistrationRequest:
       allOf:
@@ -174,6 +161,16 @@ components:
         status: { type: string }
         message: { type: string }
         data: { $ref: '#/components/schemas/OrganizationRecord' }
+    OrganizationRegistrationResponse:
+      type: object
+      properties:
+        status: { type: string }
+        message: { type: string }
+        data:
+          allOf:
+            - $ref: '#/components/schemas/OrganizationRecord'
+            - type: object
+              required: [workspaceHost, workspaceUrl]
     WebPushConfigResponse:
       type: object
       properties:

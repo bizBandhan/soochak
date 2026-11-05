@@ -12,6 +12,11 @@ const notSupported = (req, res) => res.status(405).json({
     message: "Method not allowed"
 });
 
+const userCreationNotSupported = (req, res) => res.status(405).json({
+    status: "error",
+    message: "Additional user accounts are not supported in a personal workspace"
+});
+
 // POST / passes the body to Mongo as a filter. Restrict it to plain equality on public
 // fields so it cannot use operators or probe hidden fields such as password or dob.
 const validateFilter = (req, res, next) => {
@@ -34,7 +39,8 @@ const userRoutes = new CrudRoutes(
     {
         listAll: [isAuthenticated, authorize(RESOURCE, "view:all")],
         list: [isAuthenticated, authorize(RESOURCE, "view:all"), validateFilter],
-        add: [isAuthenticated, authorize(RESOURCE, "edit:all")],
+        // The signed-in owner is the only user in a hostname-scoped personal workspace.
+        add: [isAuthenticated, userCreationNotSupported],
         read: [isAuthenticated, authorize(RESOURCE, "view:all")],
         update: [isAuthenticated, authorize(RESOURCE, "edit:all")],
         delete: [isAuthenticated, authorize(RESOURCE, "delete:all")],

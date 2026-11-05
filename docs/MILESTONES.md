@@ -8,7 +8,7 @@
 
 **Outcome:** Keep the agreed prototype decisions and runnable foundation documented before browser integration work.
 
-- Prototype decisions are recorded: current use is internal users/devices; target onboarding has self-service review and direct operator creation; hosted tenant dashboard/API host is separate from customer website origin; one organization per user for now; roles as user groups; direct or role permission grants; email/hostname ownership checks and payment deferred; explicit browser opt-in; immediate deletion on unsubscribe/definitive expiry; and manual testing.
+- Prototype decisions are recorded: current use is internal users/devices; target onboarding has self-service review and direct operator creation; each user has one unique Soochak hostname that alone identifies and scopes the prototype workspace; customer website origin is separate; no separate tenant entity/ID is introduced before market validation; roles as user groups; direct or role permission grants; email/hostname ownership checks and payment deferred; explicit browser opt-in; immediate deletion on unsubscribe/definitive expiry; and manual testing.
 - The initial directory layout, Compose stack, project-named gateway and external `publicweb` network are in place; environment configuration exists for the backend.
 - Remaining foundation work includes configuration validation/examples, health/readiness, safe logging, and a documented startup workflow.
 
@@ -16,20 +16,22 @@
 
 ## M0.5 — Organization Bootstrap and Auth
 
-**Outcome:** Organizations can be registered through a reviewed self-service flow or created directly by a platform operator, with tenant access gated on successful provisioning.
+**Outcome:** Organizations can be registered through a reviewed self-service flow or created directly by a platform operator, with hostname-identified prototype workspace access gated on successful provisioning.
 
-- Implement public self-service registration with organization name/slug, canonical customer website origin, owner details, and owner-chosen password. Create a pending organization and owner account without tenant dashboard/API access.
+**Prototype status:** Basic slug-based signup is implemented on the configured platform hostname. It synchronously creates the organization and owner/access records under `<slug>.<HOSTED_DOMAIN>`, rolls back the organization if provisioning fails, returns the assigned workspace URL, and requires the owner to sign in on that host. Local gateway routing and the external NGINX Proxy Manager DNS/TLS setup are in place. A local MongoDB smoke test verified signup, workspace login, and cross-host session rejection; public ingress was not reachable from the test runner. Signup does not create an approval-pending state or set a session cookie on the shared signup host. See the Phase 0 checklist in the README and `tasks/prototype.todo` for follow-ups.
+
+- Extend the current slug-based signup flow with canonical customer website origin and owner details, then create a pending registration that has no dashboard/API access until operator approval. This is a future review workflow, not the current prototype signup behavior.
 - Build a protected platform-operator review portal at `mgmt.soochak.optiwari.duckdns.org` for local development and `mgmt.soochak.bizbandhan.com` for production, with approve, request-changes, and reject-with-reason actions.
-- Send status emails to the submitted contact address. Let applicants with requested changes use password sign-in to a restricted registration area; do not grant tenant dashboard access before approval.
+- Send status emails to the submitted contact address. Let applicants with requested changes use password sign-in to a restricted registration area; do not grant workspace dashboard access before approval.
 - On approval, activate only after owner, owner role, and permission grants have provisioned successfully. Keep registration/provisioning states and recovery observable.
 - Support direct operator-created organizations without applicant review. Require successful owner/access-record provisioning before activation; operator-supplied initial passwords must be changed at first login.
-- Use `[tenant].soochak.optiwari.duckdns.org` for local development and `[tenant].soochak.bizbandhan.com` for production hosted SaaS; keep the customer's website origin as a separate field. Adapt tenant scoping, currently inferred from request host, to the tenant-host model. Users belong to one organization for now; Membership is deferred.
+- For the prototype, assign one unique Soochak dashboard/API hostname per user from the organization slug: `<slug>.soochak.optiwari.duckdns.org` locally and `<slug>.soochak.bizbandhan.com` in production. Resolve request hostnames to the assigned user/workspace and scope data by that hostname; keep the customer's website origin separate. Do not add a separate tenant entity or ID before market validation. Revisit the model, with a data/auth migration plan, only after market validation.
 - Seed default roles and permissions; assign the owner role.
 - Defer email verification, hostname ownership verification, custom dashboard domains, and plan payment collection to a later milestone. Self-hosted deployment is a separate path; centralized config/update synchronization is later-stage.
 - Publish and maintain the OpenAPI/Swagger contract for current-user auth, generated user/role/permission/vendor CRUD, and Web Push routes; align documented security with implemented middleware.
 - Add a one-time self-host setup flow. Support DNS hostnames such as DuckDNS that resolve to a private LAN address when accessed over valid HTTPS.
 
-**Exit criteria:** Self-service organizations remain inaccessible until operator approval and successful provisioning; operators can request changes or reject with a reason; direct operator-created organizations activate after provisioning; tenant APIs enforce organization scope and authorization.
+**Exit criteria:** Self-service organizations remain inaccessible until operator approval and successful provisioning; operators can request changes or reject with a reason; direct operator-created organizations activate after provisioning; APIs resolve the user's unique hostname and enforce that prototype workspace scope plus authorization. A separate tenant entity/ID remains deferred until after market validation.
 
 Swagger UI is served from `/api-docs/`; its OpenAPI contract and reusable schemas live in `codebase/backend/public/api-docs/`. The documented auth and administration routes remain a design contract until implemented and verified.
 
