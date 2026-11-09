@@ -1,5 +1,6 @@
 import { CrudController, HttpError } from "express-web-tools";
 import subscriberModel from "./model.js";
+import { planLimitFor } from "../../auth/organization/quotas.js";
 
 const httpError = (code, message) => Object.assign(new HttpError(code, message), { status: code });
 
@@ -25,6 +26,13 @@ class SubscriberController extends CrudController {
         if (existing) {
             return this.update(existing._id, data);
         }
+
+        const limit = await planLimitFor(this.request.origin, "maxSubscribers");
+        const count = await subscriberModel.countDocuments({ origin: this.request.origin });
+        if (count >= limit) {
+            throw httpError(429, "The subscriber limit for this plan has been reached");
+        }
+
         return super.create(data);
     }
 }

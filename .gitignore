@@ -1,7 +1,9 @@
 .env
 tasks
 vapid.json
-environment
+!environment/
+environment/*
+!environment/backend.env.example
 logs
 db
 node_modules

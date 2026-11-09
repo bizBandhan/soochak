@@ -4,6 +4,8 @@ import noteRouter from "./web-push/notify/router.js";
 import organizationRouter from "./auth/organization/router.js";
 import sessionRouter from "./auth/session/router.js";
 import userRouter from "./auth/user/router.js";
+import roleRouter from "./auth/role/router.js";
+import permissionRouter from "./auth/permission/router.js";
 const router = Router();
 const vapid = {
     "publicKey": "BHia8cQUT1hGZIwnz0UmpprftYGekEgp4hEtekrJhega-2ReT5jml27nI-0bbIFlkwuwj1P1mAYUw3LanNBuGv0",
@@ -19,6 +21,8 @@ router
     .use(sessionRouter)
     .use(organizationRouter)
     .use(userRouter)
+    .use(roleRouter)
+    .use(permissionRouter)
     .use(
         "/api/v1/web-push/subscriber",
         subscriberRouter

@@ -3,8 +3,14 @@ import { Router } from "express";
 import webpush from 'web-push';
 import controller from "./controller.js";
 import subscriberController from "../subscriber/controller.js";
+import isAuthenticated from "../../auth/user/guard.js";
+import { authorize } from "../../auth/user/authorize.js";
+import notificationModel from "./model.js";
+import { assertDailyNotificationCapacity } from "../../auth/organization/quotas.js";
 
 const router = Router();
+
+router.use(isAuthenticated, authorize("web-push:notify", "edit:organization"));
 
 eventStream.addListener(
     "notify-web-push",
@@ -49,12 +55,25 @@ router
             async (req, res) => {
                 controller.request = req;
                 subscriberController.request = req;
-                let subscribers = await subscriberController.list();
-                eventStream.emit("notify-web-push", { ...req.body, vapid: req.vapid, subscribers })
+                const startOfDayUtc = new Date();
+                startOfDayUtc.setUTCHours(0, 0, 0, 0);
+                const usedToday = await notificationModel.countDocuments({
+                    origin: req.origin,
+                    createdAt: { $gte: startOfDayUtc }
+                });
+                await assertDailyNotificationCapacity(req.origin, usedToday);
+                const notification = await controller.create(req.body);
+                const subscribers = await subscriberController.list();
+                eventStream.emit("notify-web-push", {
+                    ...req.body,
+                    vapid: req.vapid,
+                    subscribers,
+                    origin: req.origin
+                });
                 return res.json({
                     status: "success",
                     message: "",
-                    data: await controller.create(req.body)
+                    data: notification
                 })
                 throw new HttpError(502, "under development")
             }

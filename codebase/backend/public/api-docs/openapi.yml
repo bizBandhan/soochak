@@ -23,6 +23,7 @@ tags:
   - name: Vendor administration
   - name: Organization administration
   - name: Web Push
+  - name: Health
 paths:
   /auth:
     get:
@@ -120,11 +121,49 @@ paths:
     put: *login
     patch: *updateProfile
     delete: *logout
+  /health/live:
+    get:
+      tags: [Health]
+      summary: Check whether the API process is running
+      operationId: getLiveness
+      security: []
+      responses:
+        '200':
+          description: The API process is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ok }
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Check whether the API can serve requests
+      operationId: getReadiness
+      security: []
+      responses:
+        '200':
+          description: The API is ready and MongoDB is connected.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ok }
+        '503':
+          description: The API is not ready because MongoDB is unavailable.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: not-ready }
   /auth/user:
     get:
       tags: [User administration]
       summary: List all users
-      description: Each hostname is a personal workspace with only its signed-in user. Requires the `view:all` grant on `auth:user`. Password and date of birth are never returned.
+      description: Each hostname is a personal workspace with only its signed-in user. Requires the `view:organization` grant on `auth:user`. Password and date of birth are never returned.
       operationId: listUsers
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -138,7 +177,7 @@ paths:
     post:
       tags: [User administration]
       summary: Query users
-      description: Each hostname is a personal workspace with only its signed-in user. Requires `view:all` on `auth:user`. The body is an equality filter on `_id`, `user`, `email`, `role`, `sex`, `phone`, `timezone`, `name.first` or `name.last`; operators and other fields are rejected with 400.
+      description: Each hostname is a personal workspace with only its signed-in user. Requires `view:organization` on `auth:user`. The body is an equality filter on `_id`, `user`, `email`, `role`, `sex`, `phone`, `timezone`, `name.first` or `name.last`; operators and other fields are rejected with 400.
       operationId: queryUsers
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -168,7 +207,7 @@ paths:
     get:
       tags: [User administration]
       summary: Get a user by ID
-      description: Requires `view:all` on `auth:user`.
+      description: Requires `view:organization` on `auth:user`.
       operationId: getUser
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -183,7 +222,7 @@ paths:
     put:
       tags: [User administration]
       summary: Update a user
-      description: Requires `edit:all` on `auth:user`. Username and password cannot be changed here (users change their own password with `POST /me`). Only an owner can edit owners, and nobody can change their own role.
+      description: Requires `edit:organization` on `auth:user`. Username and password cannot be changed here (users change their own password with `POST /me`). Only an owner can edit owners, and nobody can change their own role.
       operationId: updateUser
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -213,7 +252,7 @@ paths:
     delete:
       tags: [User administration]
       summary: Delete a user
-      description: Requires `delete:all` on `auth:user`. You cannot delete yourself, only an owner can delete an owner, and the last owner cannot be removed.
+      description: Requires `delete:organization` on `auth:user`. You cannot delete yourself, only an owner can delete an owner, and the last owner cannot be removed.
       operationId: deleteUser
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -226,6 +265,7 @@ paths:
     get:
       tags: [Role administration]
       summary: List all roles
+      description: Requires `view:organization` on `auth:role`.
       operationId: listRoles
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -237,7 +277,7 @@ paths:
     post:
       tags: [Role administration]
       summary: Query roles
-      description: Uses the CRUD route's request-body list/query behavior.
+      description: Uses the CRUD route's request-body list/query behavior. Requires `view:organization` on `auth:role`.
       operationId: queryRoles
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -254,6 +294,7 @@ paths:
     put:
       tags: [Role administration]
       summary: Create a role
+      description: Requires `edit:organization` on `auth:role`. The owner role name is reserved.
       operationId: createRole
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -272,6 +313,7 @@ paths:
     get:
       tags: [Role administration]
       summary: Get a role by ID
+      description: Requires `view:organization` on `auth:role`.
       operationId: getRole
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -284,6 +326,7 @@ paths:
     put:
       tags: [Role administration]
       summary: Update a role
+      description: Requires `edit:organization` on `auth:role`. The owner role name cannot be changed.
       operationId: updateRole
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -300,19 +343,15 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Role administration]
-      summary: Reorder roles
+      summary: Unsupported for roles
       operationId: reorderRoles
       security: [{ bearerAuth: [] }, { authCookie: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, description: Reordering payload consumed by CrudRoutes. }
       responses:
-        '200': { description: Role order updated. }
+        '405': { description: PATCH is disabled for role records. }
     delete:
       tags: [Role administration]
       summary: Delete a role
+      description: Requires `delete:organization` on `auth:role`. The owner role and roles assigned to users or permissions cannot be deleted.
       operationId: deleteRole
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -322,6 +361,7 @@ paths:
     get:
       tags: [Permission administration]
       summary: List all permissions
+      description: Requires `view:organization` on `auth:permission`.
       operationId: listPermissions
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -333,7 +373,7 @@ paths:
     post:
       tags: [Permission administration]
       summary: Query permissions
-      description: Uses CrudRoutes request-body list/query behavior.
+      description: Uses CrudRoutes request-body list/query behavior. Requires `view:organization` on `auth:permission`.
       operationId: queryPermissions
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -350,6 +390,7 @@ paths:
     put:
       tags: [Permission administration]
       summary: Create a permission
+      description: Requires `edit:organization` on `auth:permission`. Action values must use supported action names and scopes.
       operationId: createPermission
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -368,6 +409,7 @@ paths:
     get:
       tags: [Permission administration]
       summary: Get a permission by ID
+      description: Requires `view:organization` on `auth:permission`.
       operationId: getPermission
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -380,6 +422,7 @@ paths:
     put:
       tags: [Permission administration]
       summary: Update a permission
+      description: Requires `edit:organization` on `auth:permission`. Grants for the owner role cannot be changed.
       operationId: updatePermission
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -396,19 +439,15 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Permission administration]
-      summary: Reorder permissions
+      summary: Unsupported for permissions
       operationId: reorderPermissions
       security: [{ bearerAuth: [] }, { authCookie: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, description: Reordering payload consumed by CrudRoutes. }
       responses:
-        '200': { description: Permission order updated. }
+        '405': { description: PATCH is disabled for permission records. }
     delete:
       tags: [Permission administration]
       summary: Delete a permission
+      description: Requires `delete:organization` on `auth:permission`. Grants for the owner role cannot be deleted.
       operationId: deletePermission
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -525,6 +564,7 @@ paths:
     get:
       tags: [Web Push]
       summary: List subscribers
+      description: Requires the web-push:subscriber view:organization grant.
       operationId: listSubscribers
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -534,10 +574,12 @@ paths:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/SubscriberListResponse' }
         '500': { $ref: '#/components/responses/ServerError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Web Push]
       summary: Query subscribers
-      description: Lists subscribers using the request body as query criteria.
+      description: Lists subscribers using the request body as query criteria. Requires the web-push:subscriber view:organization grant.
       operationId: querySubscribers
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -552,10 +594,12 @@ paths:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/SubscriberListResponse' }
         '500': { $ref: '#/components/responses/ServerError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     put:
       tags: [Web Push]
       summary: Create a subscriber record
-      description: Public (used by the browser SDK). Requires an https endpoint and p256dh/auth keys. Re-registering an existing endpoint updates that record and returns its id; keep the id to unsubscribe later.
+      description: Public (used by the browser SDK). Requires an https endpoint and p256dh/auth keys. Re-registering an existing endpoint updates that record and returns its id; keep the id to unsubscribe later. New endpoints are rejected with 429 when the workspace plan's subscriber limit is reached.
       operationId: createSubscriber
       security: []
       requestBody:
@@ -570,6 +614,7 @@ paths:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/SubscriberItemResponse' }
         '400': { description: Invalid endpoint or missing keys. }
+        '429': { description: The workspace plan's subscriber quota has been reached. }
         '500': { $ref: '#/components/responses/ServerError' }
   /web-push/subscriber/{id}:
     parameters:
@@ -580,6 +625,7 @@ paths:
     get:
       tags: [Web Push]
       summary: Read a subscriber
+      description: Requires the web-push:subscriber view:organization grant.
       operationId: readSubscriber
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -589,9 +635,11 @@ paths:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/SubscriberItemResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     put:
       tags: [Web Push]
       summary: Update a subscriber
+      description: Requires the web-push:subscriber edit:organization grant.
       operationId: updateSubscriber
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -606,6 +654,7 @@ paths:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/SubscriberItemResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     patch:
       tags: [Web Push]
       summary: Unsupported for subscribers
@@ -629,8 +678,9 @@ paths:
     put:
       tags: [Web Push]
       summary: Send a notification to current subscribers
-      description: Persists the notification and emits the asynchronous Web Push delivery event.
+      description: Requires the web-push:notify edit:organization grant. Persists the notification and emits the asynchronous Web Push delivery event when the workspace's daily quota is available. The daily quota uses UTC calendar days and counts notification requests.
       operationId: sendWebPushNotification
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
         required: true
         content:
@@ -643,34 +693,50 @@ paths:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/NotificationResponse' }
         '500': { $ref: '#/components/responses/ServerError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { description: The workspace plan's daily notification quota has been reached. }
     get:
       tags: [Web Push]
       summary: List notifications (under development)
       operationId: listNotifications
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
         '502': { description: Endpoint is currently under development. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Web Push]
       summary: Query notifications (under development)
       operationId: queryNotifications
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
         '502': { description: Endpoint is currently under development. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     patch:
       tags: [Web Push]
       summary: Update notifications (under development)
       operationId: updateNotifications
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
         '502': { description: Endpoint is currently under development. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     delete:
       tags: [Web Push]
       summary: Delete notifications (under development)
       operationId: deleteNotifications
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
         '502': { description: Endpoint is currently under development. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /auth/organization:
     get:
       tags: [Organization administration]
       summary: List organizations for the request origin
+      description: Requires the auth:organization view:organization grant.
       operationId: listOrganizations
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -680,9 +746,11 @@ paths:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/OrganizationListResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Organization administration]
       summary: Query organizations for the request origin
+      description: Requires the auth:organization view:organization grant.
       operationId: queryOrganizations
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -697,6 +765,7 @@ paths:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/OrganizationListResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     put:
       tags: [Organization administration]
       summary: Register an organization
@@ -721,6 +790,7 @@ paths:
     get:
       tags: [Organization administration]
       summary: Read an organization
+      description: Requires the auth:organization view:organization grant.
       operationId: readOrganization
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -730,9 +800,11 @@ paths:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/OrganizationItemResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     put:
       tags: [Organization administration]
       summary: Update an organization
+      description: Requires the auth:organization edit:organization grant.
       operationId: updateOrganization
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -747,6 +819,7 @@ paths:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/OrganizationItemResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     patch:
       tags: [Organization administration]
       summary: Unsupported for organizations
@@ -757,6 +830,7 @@ paths:
     delete:
       tags: [Organization administration]
       summary: Delete an organization
+      description: Requires the auth:organization delete:organization grant.
       operationId: deleteOrganization
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
@@ -766,6 +840,7 @@ paths:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/OrganizationItemResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 components:
   parameters:
     ResourceId:
@@ -782,7 +857,7 @@ components:
       type: apiKey
       in: cookie
       name: authorization
-      description: Authorization cookie containing `Bearer <JWT>`, as expected by the current guard implementation.
+      description: Authorization cookie containing a Bearer JWT. Requests carrying this cookie with POST, PUT, PATCH, or DELETE require an Origin matching the request scheme and host. Credentialed CORS is restricted to that origin.
   responses:
     BadRequest:
       description: Request validation failed.

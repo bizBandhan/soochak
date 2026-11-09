@@ -1,11 +1,22 @@
 import permissionModel from "../permission/model.js";
 
-// Grants live in Permission as { authorization: "role:<name>" | "user:<username>", resource, action[] }.
-// `<verb>:all` also satisfies the narrower `<verb>:organization` and `<verb>:own`.
-const satisfies = (granted, required) => {
-    if (granted.includes(required)) return true;
-    const [verb, scope] = required.split(":");
-    return scope !== "all" && granted.includes(`${verb}:all`);
+const SCOPE_LEVEL = { own: 0, organization: 1, all: 2 };
+
+// Grants combine additively across the current user's direct and role principals.
+const satisfies = (grants, required) => {
+    const [verb, scope, ...rest] = required.split(":");
+    if (!verb || rest.length) return grants.includes(required);
+    const requiredLevel = Object.hasOwn(SCOPE_LEVEL, scope) ? SCOPE_LEVEL[scope] : undefined;
+    if (requiredLevel === undefined) return grants.includes(required);
+
+    return grants.some((grant) => {
+        if (typeof grant !== "string") return false;
+        const [grantedVerb, grantedScope, ...grantedRest] = grant.split(":");
+        return grantedVerb === verb
+            && grantedRest.length === 0
+            && Object.hasOwn(SCOPE_LEVEL, grantedScope)
+            && SCOPE_LEVEL[grantedScope] >= requiredLevel;
+    });
 };
 
 // Run after isAuthenticated so req.user and req.origin are set.

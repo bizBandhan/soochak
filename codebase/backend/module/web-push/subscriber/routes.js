@@ -1,6 +1,7 @@
 import { CrudRoutes } from "express-web-tools";
 import controller from "./controller.js";
 import isAuthenticated from "../../auth/user/guard.js";
+import { authorize } from "../../auth/user/authorize.js";
 
 const notSupported = (req, res) => res.status(405).json({
     status: "error",
@@ -14,10 +15,10 @@ const subscriberRoutes = new CrudRoutes(
     "/",
     controller,
     {
-        listAll: [isAuthenticated],
-        list: [isAuthenticated],
-        read: [isAuthenticated],
-        update: [isAuthenticated],
+        listAll: [isAuthenticated, authorize("web-push:subscriber", "view:organization")],
+        list: [isAuthenticated, authorize("web-push:subscriber", "view:organization")],
+        read: [isAuthenticated, authorize("web-push:subscriber", "view:organization")],
+        update: [isAuthenticated, authorize("web-push:subscriber", "edit:organization")],
         // Subscribers have no meaningful order.
         order: [notSupported]
     }

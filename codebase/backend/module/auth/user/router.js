@@ -37,13 +37,13 @@ const userRoutes = new CrudRoutes(
     "/api/v1/auth/user",
     userController,
     {
-        listAll: [isAuthenticated, authorize(RESOURCE, "view:all")],
-        list: [isAuthenticated, authorize(RESOURCE, "view:all"), validateFilter],
+        listAll: [isAuthenticated, authorize(RESOURCE, "view:organization")],
+        list: [isAuthenticated, authorize(RESOURCE, "view:organization"), validateFilter],
         // The signed-in owner is the only user in a hostname-scoped personal workspace.
         add: [isAuthenticated, userCreationNotSupported],
-        read: [isAuthenticated, authorize(RESOURCE, "view:all")],
-        update: [isAuthenticated, authorize(RESOURCE, "edit:all")],
-        delete: [isAuthenticated, authorize(RESOURCE, "delete:all")],
+        read: [isAuthenticated, authorize(RESOURCE, "view:organization")],
+        update: [isAuthenticated, authorize(RESOURCE, "edit:organization")],
+        delete: [isAuthenticated, authorize(RESOURCE, "delete:organization")],
         // Users have no meaningful order, so reordering is rejected explicitly.
         order: [isAuthenticated, notSupported]
     }

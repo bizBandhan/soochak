@@ -50,7 +50,7 @@ Soochak is being designed to work with existing web applications, including webs
 - Roles, permissions, and resources are scoped within the hostname-identified prototype workspace. A user has one Soochak hostname during the prototype.
 - Roles group organization users; permissions may be granted to a user or a role.
 - Public self-service signup and platform-operator-created organizations are planned. Self-service organizations require operator approval before activation.
-- Usage limits and paid plans are planned; billing flow and plan definitions are not yet selected.
+- Prototype plans (`free`, `growth`, `scale`) have server-defined subscriber and daily notification quotas; new subscriptions and notification requests are rejected when their workspace limit is reached. Billing and commercial plan terms are not yet selected.
 
 ### Analytics and Observability
 - Campaign processing status.
@@ -300,7 +300,9 @@ The browser SDK is intended to use the same standards-based implementation acros
 
 ### Configuration
 
-The local `environment/backend.env` file supplies `DB`, `PORT`, `JWT_SECRET`, and `HOSTED_DOMAIN` to the backend. Set `HOSTED_DOMAIN=soochak.bizbandhan.com` in the production backend environment. Compose variable interpolation such as `BUILD_TARGET` is configured separately through the shell or a project `.env` file; it must select a Dockerfile target (`development` or `production`). Development and live origins are configured as documented above; there is no staging origin. NATS settings are later-stage. Keep secret-bearing files out of version control and add a safe example template as secrets are introduced.
+Copy `.env.example` to `.env` for Compose settings and `environment/backend.env.example` to `environment/backend.env` for backend runtime settings. Replace the example JWT secret with a generated secret of at least 32 characters (for example, `openssl rand -base64 48`) and use `HOSTED_DOMAIN=soochak.bizbandhan.com` in production. The backend validates `PORT`, the MongoDB URL, the JWT secret, and the hosted domain before connecting. Compose's `BUILD_TARGET` must select a Dockerfile target (`development` or `production`). Development and live origins are configured as documented above; there is no staging origin. NATS settings are later-stage. Never commit the generated secret or the local environment files.
+
+The backend exposes `/api/v1/health/live` for process liveness and `/api/v1/health/ready` for MongoDB readiness; readiness returns HTTP 503 when MongoDB is disconnected. Docker Compose uses the readiness endpoint for the backend health status.
 
 **Never commit production credentials, VAPID private keys, or encryption secrets to version control.**
 
@@ -316,7 +318,7 @@ Organization
   name (required)
   slug (required)
   websiteOrigin (required, canonical customer website origin; ownership checks deferred)
-  limits (experimental; structure TBD)
+  limits (server-derived maxSubscribers and maxNotificationsPerDay)
 
 User
   id
@@ -380,21 +382,24 @@ The registration endpoint accepts requests only on the configured platform signu
 
 ### Current Prototype Scope and Target Registration
 
-The running implementation remains an internal prototype for project-team organizations and test devices. Slug-based self-service registration and cookie-session login are implemented. The target product's platform-operator review workflow and separate direct operator-created organization path are not yet implemented, and complete authorization remains unfinished. Formal customer website/dashboard hostname ownership verification, email verification, plan payments, custom dashboard domains, formal per-resource website ownership verification, a staging environment, and collection/use of subscriber names and email addresses remain deferred. Browser notification permission and explicit opt-in remain required.
+The running implementation remains an internal prototype for project-team organizations and test devices. Slug-based self-service registration and cookie-session login are implemented. Hostname-scoped authentication and permission checks are wired on the current protected APIs; role, permission, and vendor APIs and authorization verification remain unfinished. The target product's platform-operator review workflow and separate direct operator-created organization path are not yet implemented. Formal customer website/dashboard hostname ownership verification, email verification, plan payments, custom dashboard domains, formal per-resource website ownership verification, a staging environment, and collection/use of subscriber names and email addresses remain deferred. Browser notification permission and explicit opt-in remain required.
 
 Production readiness work remains outside the prototype decision scope and is tracked for later planning: public onboarding and abuse controls, formal site verification, privacy and consent requirements for external subscribers, VAPID key rotation, backup/restore and operational monitoring, load validation, and customer deployment/onboarding procedures. No VAPID rotation procedure has been selected yet.
 
 ### Local Development
 
-The intended development Compose command uses the external `publicweb` network and the configured local backend environment file. The full application startup has not yet been verified:
+The development Compose command uses the external `publicweb` network and local environment files:
 
 ```bash
 git clone <repository-url>
 cd soochak
+cp .env.example .env
+cp environment/backend.env.example environment/backend.env
+# Replace JWT_SECRET in environment/backend.env with a generated secret.
 BUILD_TARGET=development docker compose up --build
 ```
 
-The `publicweb` Docker network must already exist. Use `BUILD_TARGET=production` for the production Dockerfile stage. These commands describe the current Compose setup; an end-to-end notification workflow is not implemented yet. To run the dashboard separately, see [`docs/FRONTEND.md`](docs/FRONTEND.md).
+The `publicweb` Docker network must already exist. Use `BUILD_TARGET=production` for the production Dockerfile stage. Stop the stack with `docker compose down`. These commands describe the current Compose setup; an end-to-end notification workflow is not implemented yet. To run the dashboard separately, see [`docs/FRONTEND.md`](docs/FRONTEND.md).
 
 ## Security and Privacy
 

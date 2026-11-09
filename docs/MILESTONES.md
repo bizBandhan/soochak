@@ -9,8 +9,7 @@
 **Outcome:** Keep the agreed prototype decisions and runnable foundation documented before browser integration work.
 
 - Prototype decisions are recorded: current use is internal users/devices; target onboarding has self-service review and direct operator creation; each user has one unique Soochak hostname that alone identifies and scopes the prototype workspace; customer website origin is separate; no separate tenant entity/ID is introduced before market validation; roles as user groups; direct or role permission grants; email/hostname ownership checks and payment deferred; explicit browser opt-in; immediate deletion on unsubscribe/definitive expiry; and manual testing.
-- The initial directory layout, Compose stack, project-named gateway and external `publicweb` network are in place; environment configuration exists for the backend.
-- Remaining foundation work includes configuration validation/examples, health/readiness, safe logging, and a documented startup workflow.
+- The Compose stack and gateway network are in place. Safe environment templates, startup configuration validation, secret-safe logging, liveness/readiness routes, a Compose readiness healthcheck, and local setup/run/stop instructions are documented.
 
 **Exit criteria:** Current infrastructure can be started reproducibly after the documented network/build prerequisites are met; unresolved production decisions are listed separately.
 
