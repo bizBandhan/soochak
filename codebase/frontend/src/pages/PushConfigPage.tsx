@@ -20,17 +20,24 @@ import { webPushService } from '../services/apiAdapters';
 import type { PublicVapidConfig } from '../types';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { CodeSnippet } from '../components/common/CodeSnippet';
+import { useAuth } from '../context/AuthContext';
 
 export const PushConfigPage: React.FC = () => {
+  const { isSimulationMode } = useAuth();
   const [config, setConfig] = useState<PublicVapidConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadConfig = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await webPushService.getConfig();
       setConfig(data);
+    } catch (err: unknown) {
+      setConfig(null);
+      setError(err instanceof Error ? err.message : 'Failed to load the VAPID configuration.');
     } finally {
       setLoading(false);
     }
@@ -52,7 +59,7 @@ export const PushConfigPage: React.FC = () => {
   };
 
   const curlTestSnippet = `# Verify Soochak Public VAPID Configuration endpoint
-curl -X GET "https://api.bizbandhan.com/api/v1/web-push/config" \\
+curl -X GET "${window.location.origin}/api/v1/web-push/config" \\
   -H "Accept: application/json"`;
 
   return (
@@ -79,7 +86,10 @@ curl -X GET "https://api.bizbandhan.com/api/v1/web-push/config" \\
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
-          <StatusBadge status="connected" label="GET /web-push/config" />
+          <StatusBadge
+            status={error || loading ? 'unavailable' : 'connected'}
+            label={error ? 'Configuration unavailable' : loading ? 'Loading configuration' : isSimulationMode ? 'Simulation' : 'GET /web-push/config'}
+          />
         </div>
       </div>
 
@@ -108,12 +118,14 @@ curl -X GET "https://api.bizbandhan.com/api/v1/web-push/config" \\
 
         <div className="relative">
           <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-cyan-300 break-all select-all leading-relaxed">
-            {config?.publicKey || 'Loading public VAPID key...'}
+            {config?.publicKey || (loading ? 'Loading public VAPID key...' : 'Public VAPID key unavailable.')}
           </div>
+          {error && <p role="alert" className="mt-2 text-xs text-red-400">{error}</p>}
 
           <button
             type="button"
             onClick={handleCopy}
+            disabled={!config?.publicKey}
             className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition"
           >
             {copied ? (

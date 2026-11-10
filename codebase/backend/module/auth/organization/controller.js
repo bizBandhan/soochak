@@ -4,6 +4,7 @@ import { DEFAULT_PLAN, PLAN_IDS, limitsForPlan } from "./plans.js";
 import { provisionOrganizationOwner } from "./provisioning.js";
 import { httpError, capitalize, normalizePhone, assertTimezone } from "../user/validation.js";
 import { normalizeHostedDomain, workspaceHostForSlug } from "./hostname.js";
+import { deleteVapidKeys, ensureVapidKeys } from "../../web-push/vapid.js";
 
 // Normalises owner input from the dashboard (lowercase sex, blank optionals) and validates phone/timezone.
 const normalizeOwner = (owner) => {
@@ -81,9 +82,11 @@ class OrganizationController extends CrudController {
             }
 
             try {
+                await ensureVapidKeys(organization._id);
                 await provisionOrganizationOwner({ origin: workspaceHost, owner: normalizedOwner });
             } catch (error) {
                 // Roll back so the slug is not left reserved by an organization without an owner.
+                await deleteVapidKeys(organization._id);
                 await organizationModel.collection.deleteOne({ _id: organization._id });
                 if (error.code === "OWNER_EXISTS" || error.code === "HOST_ALREADY_ASSIGNED") {
                     throw httpError(409, error.message);

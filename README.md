@@ -238,7 +238,7 @@ Prototype behavior will be checked manually using internal accounts and test dev
 - [ ] Use one standards-based SDK across supported browsers, with capability checks and browser-specific handling only where required.
 - [ ] Register and integrate a Service Worker.
 - [ ] Handle browser permission and subscription flows.
-- [ ] Generate and configure VAPID keys.
+- [x] Generate per-organization VAPID keys and encrypt private keys at rest.
 - [ ] Receive a real test notification in a browser.
 
 ### Phase 2 — Core Delivery Engine
@@ -300,9 +300,15 @@ The browser SDK is intended to use the same standards-based implementation acros
 
 ### Configuration
 
-Copy `.env.example` to `.env` for Compose settings and `environment/backend.env.example` to `environment/backend.env` for backend runtime settings. Replace the example JWT secret with a generated secret of at least 32 characters (for example, `openssl rand -base64 48`) and use `HOSTED_DOMAIN=soochak.bizbandhan.com` in production. The backend validates `PORT`, the MongoDB URL, the JWT secret, and the hosted domain before connecting. Compose's `BUILD_TARGET` must select a Dockerfile target (`development` or `production`). Development and live origins are configured as documented above; there is no staging origin. NATS settings are later-stage. Never commit the generated secret or the local environment files.
+Copy `.env.example` to `.env` for Compose settings and `environment/backend.env.example` to `environment/backend.env` for backend runtime settings. Replace the example JWT secret with a generated secret of at least 32 characters (for example, `openssl rand -base64 48`), set `VAPID_ENCRYPTION_KEY` to a separate random 32-byte key encoded as 64 hex characters (generate with `openssl rand -hex 32`), and use `HOSTED_DOMAIN=soochak.bizbandhan.com` in production. Back up the VAPID encryption key securely: replacing or losing it makes existing private keys unreadable. The backend validates these values, `PORT`, the MongoDB URL, and the hosted domain before connecting. Compose's `BUILD_TARGET` must select a Dockerfile target (`development` or `production`). Development and live origins are configured as documented above; there is no staging origin. NATS settings are later-stage. Never commit the generated secrets or the local environment files.
 
 The backend exposes `/api/v1/health/live` for process liveness and `/api/v1/health/ready` for MongoDB readiness; readiness returns HTTP 503 when MongoDB is disconnected. Docker Compose uses the readiness endpoint for the backend health status.
+
+Run VAPID generation and route integration tests against the configured MongoDB service with `docker compose exec -T backend node --test core/vapid.test.js core/vapid-routes.test.js`. The tests use a separate `soochak_vapid_tests` database and clean up their own records.
+
+Run downloaded integration-kit tests with `docker compose exec -T frontend node --import tsx --test src/services/integrationKit.test.ts`. Under Sites & Allowed Origins, register each exact HTTPS website origin, then download the client module and worker handler. Host both on the customer's website; merge or import the handler into an existing worker instead of replacing it. The client uses the workspace API without cookies and prompts for permission only when its subscribe function is called from a user action. Site-origin CORS is limited to public config and subscription endpoints and does not establish domain ownership or protect them against non-browser clients. Removing an origin blocks future cross-origin browser calls but does not delete subscribers.
+
+For real-browser testing, `codebase/demo-site/` contains a framework-free static demo. Follow its [hosting and integration instructions](codebase/demo-site/README.md) to deploy it on a separate HTTPS site and use workspace-generated client and worker downloads.
 
 **Never commit production credentials, VAPID private keys, or encryption secrets to version control.**
 
@@ -376,7 +382,7 @@ The running prototype is for internal users and devices managed by the project t
 
 Subscriber `name` and `email` fields are part of the planned schema for future personalization, but the prototype will not collect or use them. Delete a subscriber record immediately when the user unsubscribes. Also delete it when a push send receives a definitive expired/unregistered endpoint response (such as HTTP 404 or 410). Do not delete records for transient delivery errors such as timeouts or provider outages.
 
-VAPID keys are shared by resources within an environment: development and live each use their own key pair. Each resource stores its VAPID public key in the database and supplies it to the SDK. Store each environment's shared VAPID key pair in an environment-level database record, with the private key encrypted using authenticated encryption (for example, AES-GCM). Decrypt it in the backend only when needed for signing push requests. Keep the encryption key separate from the database in backend secret configuration, never send either private key or encryption key to browsers, and never log plaintext key material. The process for rotating VAPID keys remains to be decided.
+Each organization has its own VAPID key pair, shared by its resources within that environment. Keys are generated at registration or, for older organizations without keys, on successful login or first public configuration request. The public config endpoint resolves the organization by request hostname. The private key is encrypted with AES-256-GCM in the database and decrypted only for signing push requests; the encryption key is separate backend secret configuration. Never send or log private keys or the encryption key. The former shared prototype key is no longer used: any subscription created with it must be recreated using the organization's public key. Key rotation remains to be decided.
 
 The registration endpoint accepts requests only on the configured platform signup hostname, creates the organization under the slug-derived workspace hostname, and synchronously provisions its owner, role, and initial permission grants. It rolls back the organization if provisioning fails and returns workspaceHost and workspaceUrl without issuing a session cookie on the shared signup hostname; the owner must sign in at the returned workspace URL. Pending-review states, operator decisions, and status emails remain unimplemented. Email and hostname ownership verification, payment collection, custom dashboard domains, and formal customer website resource verification remain deferred.
 

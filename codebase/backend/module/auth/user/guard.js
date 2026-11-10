@@ -37,7 +37,7 @@ async function isAuthenticated(req, res, next) {
         return res.status(403).json({ status: "error", message: "Forbidden" });
     }
 
-    const userDetails = await userModel.findOne({ _id: user._id, origin: req.origin });
+    const userDetails = await userModel.findOne({ _id: user._id, origin: req.origin },"+dob");
     if (!userDetails) return unauthorized(res);
 
     req.user = userDetails;

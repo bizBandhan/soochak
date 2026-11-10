@@ -4,433 +4,179 @@
  * Soochak by BizBandhan — Sites, Resources & SDK Integration
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import {
-  Globe,
-  Plus,
-  ShieldCheck,
-  ShieldAlert,
-  Code,
-  Copy,
-  Check,
-  ExternalLink,
-  Users,
-  Server,
-  Layers,
-  FileCode,
-} from 'lucide-react';
+import { Download, Globe, Plus, ShieldAlert, Trash2 } from 'lucide-react';
 import { sitesService, webPushService } from '../services/apiAdapters';
+import { createClientScript, downloadScript, workerScript } from '../services/integrationKit';
 import type { SiteResource, PublicVapidConfig } from '../types';
 import { CodeSnippet } from '../components/common/CodeSnippet';
-import { StatusBadge } from '../components/common/StatusBadge';
+import { ConfirmModal } from '../components/common/ConfirmModal';
+import { useAuth } from '../context/AuthContext';
 
-interface SiteFormValues {
-  name: string;
-  origin: string;
-  serviceWorkerPath: string;
-  quota: number;
-}
-
-const SITE_FORM_DEFAULTS: SiteFormValues = {
-  name: '',
-  origin: '',
-  serviceWorkerPath: '/sw.js',
-  quota: 15000,
-};
-
-const FieldError: React.FC<{ message?: string }> = ({ message }) =>
-  message ? (
-    <p role="alert" className="mt-1 text-[11px] text-red-400">
-      {message}
-    </p>
-  ) : null;
+type SiteFormValues = Pick<SiteResource, 'name' | 'origin' | 'serviceWorkerPath'>;
 
 export const SitesResourcesPage: React.FC = () => {
+  const { isSimulationMode } = useAuth();
   const [sites, setSites] = useState<SiteResource[]>([]);
-  const [vapidConfig, setVapidConfig] = useState<PublicVapidConfig | null>(null);
-  const [selectedSite, setSelectedSite] = useState<SiteResource | null>(null);
+  const [config, setConfig] = useState<PublicVapidConfig | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<SiteFormValues>({
+    defaultValues: { name: '', origin: '', serviceWorkerPath: '/sw.js' },
+  });
+  const selected = sites.find((site) => site._id === selectedId);
 
-  // New site modal
-  const [showAddModal, setShowAddModal] = useState(false);
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<SiteFormValues>({ defaultValues: SITE_FORM_DEFAULTS });
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [sitesData, config] = await Promise.all([
-        sitesService.listSites(),
-        webPushService.getConfig(),
-      ]);
-      setSites(sitesData);
-      setVapidConfig(config);
-      if (sitesData.length > 0 && !selectedSite) {
-        setSelectedSite(sitesData[0]);
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const [siteList, publicConfig] = await Promise.all([sitesService.listSites(), webPushService.getConfig()]);
+        if (!active) return;
+        setSites(siteList);
+        setSelectedId(siteList[0]?._id ?? null);
+        setConfig(publicConfig);
+      } catch (err: unknown) {
+        if (active) setError(err instanceof Error ? err.message : 'Failed to load sites.');
+      } finally {
+        if (active) setLoading(false);
       }
-    } finally {
-      setLoading(false);
+    };
+    void load();
+    return () => { active = false; };
+  }, []);
+
+  const addSite = async (values: SiteFormValues) => {
+    setError(null);
+    try {
+      const created = await sitesService.addSite({
+        name: values.name.trim(), origin: values.origin.trim(), serviceWorkerPath: values.serviceWorkerPath.trim(),
+      });
+      setSites((current) => [...current, created]);
+      setSelectedId(created._id);
+      setShowAdd(false);
+      reset();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save site.');
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleCreateSite = async (values: SiteFormValues) => {
-    const created = await sitesService.addSite({
-      name: values.name.trim(),
-      origin: values.origin.trim(),
-      serviceWorkerPath: values.serviceWorkerPath.trim() || '/sw.js',
-      subscriberLimit: Number(values.quota),
-    });
-
-    setSites([...sites, created]);
-    setSelectedSite(created);
-    setShowAddModal(false);
-    reset(SITE_FORM_DEFAULTS);
+  const deleteSite = async () => {
+    if (!selected) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await sitesService.deleteSite(selected._id);
+      const remaining = sites.filter((site) => site._id !== selected._id);
+      setSites(remaining);
+      setSelectedId(remaining[0]?._id ?? null);
+      setShowDelete(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to remove site.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  const clientIntegrationCode = `// 1. Client-Side Browser Subscription Code
-// Place in your website frontend bundle (e.g., app.js / index.html)
-
-const SOOCHAK_PUBLIC_VAPID_KEY = "${vapidConfig?.publicKey || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgD...'}";
-
-function urlB64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/\\-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-export async function registerSoochakSubscriber(subscriberTag = 'product_updates') {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.warn('Web Push is not supported in this browser.');
-    return;
-  }
-
-  // Register or reuse your existing service worker
-  const registration = await navigator.serviceWorker.register('${selectedSite?.serviceWorkerPath || '/sw.js'}');
-  await navigator.serviceWorker.ready;
-
-  // Request notification permissions
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') {
-    console.warn('Push notification permission denied by user.');
-    return;
-  }
-
-  // Subscribe with public VAPID key
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlB64ToUint8Array(SOOCHAK_PUBLIC_VAPID_KEY),
-  });
-
-  // Transmit subscription to Soochak API
-  const response = await fetch('/api/v1/web-push/subscriber', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      endpoint: subscription.endpoint,
-      keys: {
-        p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))),
-        auth: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth')))),
-      },
-      tag: subscriberTag,
-      origin: window.location.origin,
-    }),
-  });
-
-  const saved = await response.json();
-  // Keep the server id so you can unsubscribe later with DELETE /api/v1/web-push/subscriber/<id>.
-  if (saved?.data?._id) localStorage.setItem('soochak-subscriber-id', saved.data._id);
-  return saved;
-}`;
-
-  const workerPreservationCode = `// 2. Service Worker Integration (Preserving Your Existing SW)
-// Append this block to your existing Service Worker (${selectedSite?.serviceWorkerPath || '/sw.js'})
-// OR load it cleanly at the top of your worker via: importScripts('/soochak-worker.js');
-
-self.addEventListener('push', (event) => {
-  if (!event.data) return;
-
-  try {
-    const payload = event.data.json();
-    const title = payload.title || 'Soochak Notification';
-    const options = {
-      body: payload.body || '',
-      icon: payload.icon || '/icon.png',
-      badge: payload.badge || '/badge.png',
-      tag: payload.tag || 'soochak-push',
-      data: {
-        url: payload.url || '/',
-      },
-    };
-
-    event.waitUntil(self.registration.showNotification(title, options));
-  } catch (err) {
-    // Plain text fallback
-    event.waitUntil(
-      self.registration.showNotification('Notification', {
-        body: event.data.text(),
-      })
-    );
-  }
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
-
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url === targetUrl && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
-      }
-    })
-  );
-});`;
+  const clientScript = config?.publicKey && !isSimulationMode
+    ? createClientScript(window.location.origin, config.publicKey) : null;
+  const inputClass = 'mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white';
+  const buttonClass = 'inline-flex items-center gap-2 px-3 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs disabled:opacity-50';
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800">
+      <div className="flex items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            <Globe className="w-5 h-5 text-cyan-400" />
-            <span>Sites & Allowed Origins</span>
-          </h1>
-          <p className="mt-1 text-xs text-slate-400">
-            Configure client web applications, allowed origin scopes, and safe Service Worker push listeners.
-          </p>
+          <h1 className="text-xl font-bold text-white flex items-center gap-2"><Globe className="w-5 h-5" /> Sites & Allowed Origins</h1>
+          <p className="mt-1 text-xs text-slate-400">Register exact HTTPS origins for this workspace's public push API.</p>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition shadow-sm self-start sm:self-auto"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Add Website Origin</span>
-        </button>
+        <button type="button" className={buttonClass} onClick={() => setShowAdd(true)}><Plus className="w-4 h-4" /> Add Website Origin</button>
       </div>
-
-      {/* Preservation Rule Banner */}
-      <div className="p-4 rounded-xl border border-cyan-900/60 bg-cyan-950/30 text-xs text-cyan-200 flex items-start gap-3">
-        <ShieldAlert className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <p className="font-semibold text-cyan-300">
-            Customer Service Worker Preservation Policy
-          </p>
-          <p className="text-[11px] text-slate-300 leading-relaxed">
-            Soochak enforces non-destructive integrations. Integrating push notifications must never silently replace, unregister, or blow away a customer's existing Service Worker (caching, offline sync, Workbox, PWAs). Instead, append the push event listener to the existing worker script or invoke it via <code className="text-cyan-300 font-mono">importScripts()</code>.
-          </p>
-        </div>
+      {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
+      {isSimulationMode && <p className="text-xs text-amber-400">Switch off simulation mode to download a working integration kit.</p>}
+      <div className="p-4 rounded-xl border border-cyan-900/60 bg-cyan-950/30 text-xs text-cyan-200 flex gap-3">
+        <ShieldAlert className="w-5 h-5 shrink-0" />
+        <p>Keep existing Service Workers. If the site already handles push or notification clicks, merge the downloaded handlers rather than adding duplicate listeners. Origin access is not domain ownership verification.</p>
       </div>
-
-      {/* Split View: Sites List + Detail Integration Guide */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Sites List */}
-        <div className="space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-1">
-            Registered Sites & Origins ({sites.length})
-          </div>
-
-          <div className="space-y-2">
-            {sites.map((site) => {
-              const isSelected = selectedSite?._id === site._id;
-              return (
-                <button
-                  key={site._id}
-                  type="button"
-                  onClick={() => setSelectedSite(site)}
-                  className={`w-full text-left p-3.5 rounded-xl border transition ${
-                    isSelected
-                      ? 'bg-slate-900 border-cyan-500/60 shadow-xs'
-                      : 'bg-slate-900/50 border-slate-800 hover:bg-slate-900/80'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-white truncate">
-                      {site.name}
-                    </span>
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-800/40">
-                      Active
-                    </span>
-                  </div>
-
-                  <div className="mt-1 font-mono text-[11px] text-cyan-400 truncate">
-                    {site.origin}
-                  </div>
-
-                  <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                    <span className="flex items-center gap-1">
-                      <Users className="w-3 h-3 text-slate-500" />
-                      {site.subscriberCount.toLocaleString()} subs
-                    </span>
-                    <span>Limit: {site.subscriberLimit.toLocaleString()}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="space-y-2">
+          <h2 className="text-xs font-semibold uppercase text-slate-400">Registered origins ({sites.length})</h2>
+          {loading && <p className="text-xs text-slate-400">Loading sites...</p>}
+          {!loading && !sites.length && <p className="text-xs text-slate-400">No sites registered.</p>}
+          {sites.map((site) => (
+            <button type="button" key={site._id} onClick={() => setSelectedId(site._id)}
+              className={`w-full text-left p-3 rounded-lg border ${selectedId === site._id ? 'border-cyan-500 bg-slate-900' : 'border-slate-800 bg-slate-900/50'}`}>
+              <span className="block text-xs font-semibold text-white">{site.name}</span>
+              <span className="block mt-1 text-xs text-cyan-400 break-all">{site.origin}</span>
+            </button>
+          ))}
         </div>
-
-        {/* Integration Instructions & Public Configuration */}
-        <div className="lg:col-span-2 space-y-6">
-          {selectedSite ? (
-            <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-                <div>
-                  <h2 className="text-base font-semibold text-white">
-                    {selectedSite.name}
-                  </h2>
-                  <div className="flex items-center gap-2 text-xs font-mono text-cyan-300 mt-0.5">
-                    <span>Origin: {selectedSite.origin}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>Worker: {selectedSite.serviceWorkerPath}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <StatusBadge status="connected" label="Origin Allowed" />
-                </div>
+        <div className="lg:col-span-2">
+          {selected ? (
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 space-y-5">
+              <div className="flex justify-between gap-3">
+                <div><h2 className="text-sm font-semibold text-white">{selected.name}</h2><p className="text-xs text-cyan-400 break-all">{selected.origin}</p></div>
+                <button type="button" onClick={() => setShowDelete(true)} className="text-red-400 text-xs flex items-center gap-1"><Trash2 className="w-4 h-4" /> Remove</button>
               </div>
-
-              {/* Public VAPID Configuration */}
-              <div className="p-3.5 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
-                  <span>Public VAPID Application Server Key</span>
-                  <span className="text-[10px] font-mono text-slate-500">GET /web-push/config</span>
-                </span>
-                <p className="font-mono text-xs text-cyan-300 break-all select-all p-2 rounded bg-slate-900/90 border border-slate-800">
-                  {vapidConfig?.publicKey || 'Loading VAPID key...'}
-                </p>
-                <p className="text-[10px] text-slate-500">
-                  Safe for public inclusion in client JavaScript. Zero private key material is returned or stored in client code.
-                </p>
+              <p className="text-xs text-slate-300">Public VAPID key: <span className="font-mono break-all text-cyan-300">{config?.publicKey || 'Unavailable'}</span></p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={buttonClass} disabled={!clientScript} onClick={() => clientScript && downloadScript('soochak-client.js', clientScript)}><Download className="w-4 h-4" /> Download client JavaScript</button>
+                <button type="button" className={buttonClass} onClick={() => downloadScript('soochak-worker.js', workerScript)}><Download className="w-4 h-4" /> Download worker handler</button>
               </div>
-
-              {/* Code Snippets */}
-              <div className="space-y-4">
-                <CodeSnippet
-                  title="Step 1: Frontend Browser Subscription Helper"
-                  language="javascript"
-                  code={clientIntegrationCode}
-                />
-
-                <CodeSnippet
-                  title="Step 2: Service Worker Push Event Handler"
-                  language="javascript"
-                  code={workerPreservationCode}
-                  isServiceWorkerSafeNotice={true}
-                />
+              <div className="space-y-2 text-xs text-slate-300">
+                <p><strong>Existing worker:</strong> host the handler on your site and add <code>importScripts('/soochak-worker.js')</code> to your existing classic worker, or merge its handlers. For module workers, merge or import it as a module.</p>
+                <p><strong>No worker:</strong> host the downloaded handler at <code>{selected.serviceWorkerPath}</code>, then register that path on your site. Do not register it over an existing worker.</p>
+                <p>Host the client as an ES module and call <code>subscribeSoochak()</code> from a user click after your worker is registered. Call <code>unsubscribeSoochak()</code> to remove the subscription.</p>
+                <p>The Service Worker scope must cover the page running the client. The subscriber ID is saved in that browser's local storage for unsubscription.</p>
+                <p>A worker can have only one push subscription: the helper will refuse to replace a subscription using another VAPID key.</p>
+                <p>Each site origin must be registered separately. CORS is not authentication; public subscription endpoints remain reachable by non-browser clients.</p>
               </div>
+              <CodeSnippet title="Example integration" code={`// Only when your site does not already have a Service Worker:
+if (!(await navigator.serviceWorker.getRegistration())) {
+  await navigator.serviceWorker.register(${JSON.stringify(selected.serviceWorkerPath)});
+}
+
+// Host soochak-client.js on your site and wire this to a user action.
+import { subscribeSoochak, unsubscribeSoochak } from '/soochak-client.js';
+document.querySelector('#subscribe').addEventListener('click', async () => {
+  try { await subscribeSoochak(); } catch (error) { console.error(error); }
+});
+document.querySelector('#unsubscribe').addEventListener('click', async () => {
+  try { await unsubscribeSoochak(); } catch (error) { console.error(error); }
+});`} />
+              {clientScript && <CodeSnippet title="Client JavaScript" code={clientScript} />}
+              <CodeSnippet title="Worker handler" code={workerScript} isServiceWorkerSafeNotice />
             </div>
-          ) : (
-            <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-12 text-center text-xs text-slate-400">
-              Select a site to view integration instructions.
-            </div>
-          )}
+          ) : <p className="text-xs text-slate-400">Select or add a site to view integration instructions.</p>}
         </div>
       </div>
-
-      {/* Add Site Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-6 space-y-4">
-            <h3 className="text-sm font-semibold text-white">
-              Add New Website Origin
-            </h3>
-
-            <form onSubmit={handleSubmit(handleCreateSite)} noValidate className="space-y-3 text-xs">
-              <div>
-                <label className="block font-medium text-slate-300">Site Name *</label>
-                <input
-                  type="text"
-                  {...register('name', {
-                    required: 'Site name is required.',
-                    validate: (v) => v.trim().length > 0 || 'Site name is required.',
-                  })}
-                  className="mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
-                  placeholder="e.g. Customer Portal"
-                />
-                <FieldError message={errors.name?.message} />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-300">Allowed Origin (FQDN) *</label>
-                <input
-                  type="url"
-                  {...register('origin', {
-                    required: 'Allowed origin is required.',
-                    pattern: { value: /^https?:\/\/\S+$/i, message: 'Enter a valid http(s) origin.' },
-                  })}
-                  className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-cyan-300 focus:ring-1 focus:ring-cyan-500"
-                  placeholder="https://portal.example.com"
-                />
-                <FieldError message={errors.origin?.message} />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-300">Service Worker Path</label>
-                <input
-                  type="text"
-                  {...register('serviceWorkerPath', { required: 'Service Worker path is required.' })}
-                  className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
-                  placeholder="/sw.js"
-                />
-                <FieldError message={errors.serviceWorkerPath?.message} />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-300">Subscriber Quota Limit</label>
-                <input
-                  type="number"
-                  {...register('quota', {
-                    valueAsNumber: true,
-                    required: 'Quota is required.',
-                    min: { value: 1, message: 'Quota must be at least 1.' },
-                  })}
-                  className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
-                />
-                <FieldError message={errors.quota?.message} />
-              </div>
-
-              <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-3 py-1.5 rounded bg-slate-800 text-slate-300 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-medium disabled:opacity-50"
-                >
-                  Save Allowed Origin
-                </button>
-              </div>
-            </form>
-          </div>
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+          <form onSubmit={handleSubmit(addSite)} className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-6 space-y-3 text-xs">
+            <h2 className="text-sm font-semibold text-white">Add Website Origin</h2>
+            <label className="block text-slate-300">Site name
+              <input className={inputClass} {...register('name', { required: 'Site name is required.' })} />
+              {errors.name && <span role="alert" className="text-red-400">{errors.name.message}</span>}
+            </label>
+            <label className="block text-slate-300">HTTPS origin
+              <input type="url" className={inputClass} placeholder="https://example.com" {...register('origin', { required: 'Origin is required.' })} />
+              {errors.origin && <span role="alert" className="text-red-400">{errors.origin.message}</span>}
+            </label>
+            <label className="block text-slate-300">Service Worker path
+              <input className={inputClass} {...register('serviceWorkerPath', { required: 'Service Worker path is required.' })} />
+              {errors.serviceWorkerPath && <span role="alert" className="text-red-400">{errors.serviceWorkerPath.message}</span>}
+            </label>
+            {error && <p role="alert" className="text-red-400">{error}</p>}
+            <div className="flex justify-end gap-3"><button type="button" onClick={() => setShowAdd(false)} className="text-slate-300">Cancel</button><button type="submit" disabled={isSubmitting} className={buttonClass}>Save origin</button></div>
+          </form>
         </div>
       )}
+      <ConfirmModal isOpen={showDelete} title="Remove allowed origin" message={`Remove ${selected?.origin}? New cross-origin subscriptions and unsubscriptions from this site will be blocked. Existing subscriptions remain.`}
+        confirmLabel="Remove origin" isDestructive isLoading={deleting} onConfirm={() => void deleteSite()} onCancel={() => setShowDelete(false)} />
     </div>
   );
 };

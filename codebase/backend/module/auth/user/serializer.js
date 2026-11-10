@@ -9,6 +9,8 @@ export function serializeUser(user, origin) {
         phone: source.phone,
         sex: source.sex,
         timezone: source.timezone,
+        age: source.age?.years,
+        dob:source.dob.toISOString().split("T")[0],
         profilePicture: source.profilePicture,
         role: source.role,
         organization: origin,

@@ -171,6 +171,31 @@ components:
             - $ref: '#/components/schemas/OrganizationRecord'
             - type: object
               required: [workspaceHost, workspaceUrl]
+    WebPushSite:
+      type: object
+      required: [_id, workspace, name, origin, serviceWorkerPath, createdAt, updatedAt]
+      properties:
+        _id: { type: string }
+        workspace: { type: string, description: Workspace hostname. }
+        name: { type: string }
+        origin: { type: string, description: Exact HTTPS website origin. }
+        serviceWorkerPath: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    WebPushSiteResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status: { type: string, example: success }
+        data: { $ref: '#/components/schemas/WebPushSite' }
+    WebPushSiteListResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status: { type: string, example: success }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/WebPushSite' }
     WebPushConfigResponse:
       type: object
       properties:

@@ -4,6 +4,7 @@ import isAuthenticated from "../user/guard.js";
 import { startSession, endSession } from "../user/session.js";
 import { serializeUser } from "../user/serializer.js";
 import { httpError, buildProfileUpdate, saveProfileUpdate, MIN_PASSWORD_LENGTH } from "../user/validation.js";
+import { ensureWorkspaceVapidKeys } from "../../web-push/vapid.js";
 
 const handle = (fn) => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
 
@@ -43,7 +44,7 @@ const login = handle(async (req, res) => {
         throw httpError(429, "Too many login attempts. Please wait 60 seconds before trying again.");
     }
 
-    const account = await userModel.findOne({ user: user.trim(), origin: req.origin });
+    const account = await userModel.findOne({ user: user.trim(), origin: req.origin }).select("+dob");
     let verified = false;
     if (account) {
         // An account without a password is inactive; treat it like a wrong password.
@@ -55,6 +56,7 @@ const login = handle(async (req, res) => {
     }
 
     failedLogins.delete(key);
+    await ensureWorkspaceVapidKeys(req.origin);
     const expiresAt = startSession(req, res, account);
     return res.json({
         status: "success",
@@ -63,10 +65,13 @@ const login = handle(async (req, res) => {
     });
 });
 
-const status = (req, res) => res.json({
-    status: "success",
-    message: "",
-    data: { authenticated: true, user: serializeUser(req.user, req.origin) }
+const status = handle(async (req, res) => {
+    await ensureWorkspaceVapidKeys(req.origin);
+    return res.json({
+        status: "success",
+        message: "",
+        data: { authenticated: true, user: serializeUser(req.user, req.origin) }
+    });
 });
 
 // Tokens are stateless JWTs, so logout clears the cookie; it is safe to call without a session.

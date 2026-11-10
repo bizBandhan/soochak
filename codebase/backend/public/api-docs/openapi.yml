@@ -549,10 +549,131 @@ paths:
       responses:
         '200': { description: Vendor deleted. }
         '404': { $ref: '#/components/responses/NotFound' }
+  /web-push/site:
+    get:
+      tags: [Web Push]
+      summary: List workspace site origins
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Site records in the current workspace.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/WebPushSiteListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Web Push]
+      summary: Query workspace site origins
+      description: Exact string filters may use name, origin or serviceWorkerPath.
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                origin: { type: string }
+                serviceWorkerPath: { type: string }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Matching site records.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/WebPushSiteListResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Web Push]
+      summary: Register an allowed site origin
+      description: Requires the web-push:subscriber edit:organization grant. Domain ownership is not verified.
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody: &siteBody
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, origin, serviceWorkerPath]
+              additionalProperties: false
+              properties:
+                name: { type: string, maxLength: 120 }
+                origin: { type: string, description: Exact HTTPS origin without path, query or fragment. }
+                serviceWorkerPath: { type: string, example: /sw.js }
+      responses:
+        '201':
+          description: Site registered.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/WebPushSiteResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: Origin already registered in this workspace. }
+  /web-push/site/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Web Push]
+      summary: Read a workspace site
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Site record.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/WebPushSiteResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Web Push]
+      summary: Update a workspace site
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      requestBody: *siteBody
+      responses:
+        '200':
+          description: Updated site record.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/WebPushSiteResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: Origin already registered in this workspace. }
+    delete:
+      tags: [Web Push]
+      summary: Remove an allowed origin
+      description: Revokes browser CORS access but does not delete existing subscribers.
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '200':
+          description: Removed site record.
+          content:
+            application/json:
+              schema: { $ref: './schemas.yml#/components/schemas/WebPushSiteResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Web Push]
+      summary: Site ordering is not supported
+      security: [{ bearerAuth: [] }, { authCookie: [] }]
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { description: Method not allowed. }
   /web-push/config:
     get:
       tags: [Web Push]
       summary: Get the Web Push VAPID public key
+      description: Returns the request hostname's organization public key, generating its key pair if missing. The private key is never returned. Cross-origin browser access is limited to registered site origins without credentials.
       operationId: getWebPushConfig
       responses:
         '200':
@@ -560,6 +681,8 @@ paths:
           content:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/WebPushConfigResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
   /web-push/subscriber:
     get:
       tags: [Web Push]

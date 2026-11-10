@@ -160,8 +160,7 @@ async function init() {
   try {
     registration = await navigator.serviceWorker.register('/sw.js');
     await navigator.serviceWorker.ready;
-    // const config = await api('/api/config');
-    let resp = await api.get(`/api/v1/web-push/subscriber-config`);
+    let resp = await api.get(`/api/v1/web-push/config`);
     if (!resp || !resp.data) throw new Error("Misconfigured")
     vapidPublicKey = resp.data;
     await refreshStatus();

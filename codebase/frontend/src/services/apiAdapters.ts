@@ -5,7 +5,7 @@
  * Follows OpenAPI & Schemas contract
  */
 
-import { apiClient, SEED_ORGANIZATION, SEED_USER, SEED_VAPID_CONFIG, SEED_SUBSCRIBERS, SEED_NOTIFICATIONS, SEED_SITES, SEED_ADMIN_USERS, SEED_ROLES, SEED_PERMISSIONS } from './apiClient';
+import { apiClient, SEED_ORGANIZATION, SEED_USER, SEED_VAPID_CONFIG, SEED_SUBSCRIBERS, SEED_NOTIFICATIONS, SEED_ADMIN_USERS, SEED_ROLES, SEED_PERMISSIONS } from './apiClient';
 import type {
   Organization,
   OrganizationRegistrationPayload,
@@ -26,7 +26,6 @@ let simSubscribers: PushSubscriber[] = [...SEED_SUBSCRIBERS];
 let simNotifications: NotificationRecord[] = [...SEED_NOTIFICATIONS];
 let simOrg: Organization = { ...SEED_ORGANIZATION };
 let simUser: UserProfile = { ...SEED_USER };
-let simSites: SiteResource[] = [...SEED_SITES];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -361,15 +360,15 @@ export const webPushService = {
    * Returns public VAPID key
    */
   async getConfig(): Promise<PublicVapidConfig> {
-    try {
-      const res = await apiClient.api.get('/web-push/config');
-      return res.data || res;
-    } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        return SEED_VAPID_CONFIG;
-      }
-      throw err;
+    if (apiClient.isSimulationMode) return SEED_VAPID_CONFIG;
+    const res: unknown = await apiClient.api.get('/web-push/config');
+    const payload: unknown = isRecord(res) && 'data' in res ? res.data : res;
+    if (typeof payload !== 'string' || !payload) {
+      const message = isRecord(res) && typeof res.message === 'string' && res.message
+        ? res.message : 'The server did not return a valid public VAPID key.';
+      throw new Error(message);
     }
+    return { publicKey: payload };
   },
 
   /**
@@ -525,21 +524,28 @@ export const webPushService = {
 
 export const sitesService = {
   async listSites(): Promise<SiteResource[]> {
-    return simSites;
+    const response: unknown = await apiClient.api.get('/web-push/site');
+    const data = isRecord(response) ? response.data : undefined;
+    if (!Array.isArray(data)) {
+      throw new Error(isRecord(response) && typeof response.message === 'string' ? response.message : 'Failed to load sites.');
+    }
+    return data;
   },
-  async addSite(site: Partial<SiteResource>): Promise<SiteResource> {
-    const created: SiteResource = {
-      _id: 'site_' + Date.now().toString(36),
-      name: site.name || 'New Web Resource',
-      origin: site.origin || 'https://newsite.example.com',
-      subscriberCount: 0,
-      subscriberLimit: site.subscriberLimit || 10000,
-      serviceWorkerPath: site.serviceWorkerPath || '/sw.js',
-      status: 'active',
-      createdAt: new Date().toISOString(),
-    };
-    simSites = [...simSites, created];
-    return created;
+  async addSite(site: Pick<SiteResource, 'name' | 'origin' | 'serviceWorkerPath'>): Promise<SiteResource> {
+    const response: unknown = await apiClient.api.put('/web-push/site', site);
+    const data = isRecord(response) ? response.data : undefined;
+    if (!isRecord(data) || typeof data._id !== 'string' || typeof data.name !== 'string'
+        || typeof data.origin !== 'string' || typeof data.serviceWorkerPath !== 'string'
+        || typeof data.createdAt !== 'string') {
+      throw new Error(isRecord(response) && typeof response.message === 'string' ? response.message : 'Failed to save site.');
+    }
+    return { _id: data._id, name: data.name, origin: data.origin, serviceWorkerPath: data.serviceWorkerPath, createdAt: data.createdAt };
+  },
+  async deleteSite(id: string): Promise<void> {
+    const response: unknown = await apiClient.api.delete(`/web-push/site/${encodeURIComponent(id)}`);
+    if (!isRecord(response) || response.status !== 'success') {
+      throw new Error(isRecord(response) && typeof response.message === 'string' ? response.message : 'Failed to remove site.');
+    }
   },
 };
 

@@ -1,6 +1,6 @@
 import { normalizeHostedDomain } from "../module/auth/organization/hostname.js";
 
-const REQUIRED_KEYS = ["PORT", "DB", "JWT_SECRET", "HOSTED_DOMAIN"];
+const REQUIRED_KEYS = ["PORT", "DB", "JWT_SECRET", "VAPID_ENCRYPTION_KEY", "HOSTED_DOMAIN"];
 
 export function loadConfig(env = process.env) {
     const missing = REQUIRED_KEYS.filter((key) => typeof env[key] !== "string" || !env[key].trim());
@@ -18,6 +18,10 @@ export function loadConfig(env = process.env) {
         || env.JWT_SECRET === "replace-this-with-a-random-secret-of-at-least-32-characters"
     ) {
         throw new Error("JWT_SECRET must be a non-example secret of at least 32 characters");
+    }
+
+    if (!/^[0-9a-f]{64}$/i.test(env.VAPID_ENCRYPTION_KEY)) {
+        throw new Error("VAPID_ENCRYPTION_KEY must be 32 random bytes encoded as 64 hexadecimal characters");
     }
 
     let databaseUrl;

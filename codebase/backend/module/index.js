@@ -6,15 +6,12 @@ import sessionRouter from "./auth/session/router.js";
 import userRouter from "./auth/user/router.js";
 import roleRouter from "./auth/role/router.js";
 import permissionRouter from "./auth/permission/router.js";
+import { ensureWorkspaceVapidKeys } from "./web-push/vapid.js";
+import siteRouter from "./web-push/site/router.js";
 const router = Router();
-const vapid = {
-    "publicKey": "BHia8cQUT1hGZIwnz0UmpprftYGekEgp4hEtekrJhega-2ReT5jml27nI-0bbIFlkwuwj1P1mAYUw3LanNBuGv0",
-    "privateKey": "84_Lbw_M1R6PsaW3O1VjEvqmtH5lot4i9LU14V4kwG0"
-}
 
 router.use((req, res, next) => {
     if (!req.user) req.user = {};
-    req.vapid=vapid
     next();
 })
 router
@@ -23,6 +20,7 @@ router
     .use(userRouter)
     .use(roleRouter)
     .use(permissionRouter)
+    .use("/api/v1/web-push/site", siteRouter)
     .use(
         "/api/v1/web-push/subscriber",
         subscriberRouter
@@ -34,11 +32,12 @@ router
 router
     .get(
         "/api/v1/web-push/config",
-        (req, res) => {
+        async (req, res) => {
+            const publicKey = await ensureWorkspaceVapidKeys(req.origin);
             return res.json({
                 status: "success",
                 message: "",
-                data: vapid.publicKey
+                data: publicKey
             })
         }
     )

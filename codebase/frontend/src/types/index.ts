@@ -158,9 +158,9 @@ export interface SiteResource {
   _id: string;
   name: string;
   origin: string;
-  subscriberCount: number;
-  subscriberLimit: number;
+  subscriberCount?: number;
+  subscriberLimit?: number;
   serviceWorkerPath: string;
-  status: 'active' | 'verifying' | 'unverified';
+  status?: 'active' | 'verifying' | 'unverified';
   createdAt: string;
 }

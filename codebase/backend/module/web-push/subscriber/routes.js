@@ -19,8 +19,7 @@ const subscriberRoutes = new CrudRoutes(
         list: [isAuthenticated, authorize("web-push:subscriber", "view:organization")],
         read: [isAuthenticated, authorize("web-push:subscriber", "view:organization")],
         update: [isAuthenticated, authorize("web-push:subscriber", "edit:organization")],
-        // Subscribers have no meaningful order.
-        order: [notSupported]
+        order: [isAuthenticated, authorize("web-push:subscriber", "edit:organization")]
     }
 );
 

@@ -33,6 +33,7 @@ export const DashboardOverviewPage: React.FC = () => {
   const [sites, setSites] = useState<SiteResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [backendUnderDev, setBackendUnderDev] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -46,8 +47,8 @@ export const DashboardOverviewPage: React.FC = () => {
       setNotifications(notifsData.records);
       setBackendUnderDev(notifsData.backendUnderDevelopment);
       setSites(sitesList);
-    } catch {
-      // handled
+    } catch (err: unknown) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load dashboard data.');
     } finally {
       setLoading(false);
     }
@@ -63,6 +64,7 @@ export const DashboardOverviewPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {loadError && <p role="alert" className="text-xs text-red-400">{loadError}</p>}
       {/* Top Banner: Organization Context & Hostname Notice */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -279,7 +281,7 @@ export const DashboardOverviewPage: React.FC = () => {
                     {site.origin}
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-1 border-t border-slate-800/60">
-                    <span>{site.subscriberCount.toLocaleString()} subs</span>
+                    <span>{site.subscriberCount == null ? 'Site registered' : `${site.subscriberCount.toLocaleString()} subs`}</span>
                     <span>Worker: {site.serviceWorkerPath}</span>
                   </div>
                 </div>

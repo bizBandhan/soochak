@@ -10,7 +10,7 @@
 - For self-hosted deployments, support a DNS hostname (including dynamic DNS such as DuckDNS) resolving to a private LAN address when browser access uses valid HTTPS. Raw HTTP access by a remote private IP is not a supported Web Push context.
 - Email verification, customer website ownership verification, and custom dashboard-host verification are deferred and are not initial activation gates. Keep any later ownership challenge separate from per-resource verification.
 - Serve production SDK, dashboard, and API over HTTPS. Never log credentials, VAPID private keys, or full subscription secrets.
-- Use one VAPID key pair per environment. Store the private key encrypted in an environment-level database record; keep its AES encryption key separately in backend secret configuration. Define key rotation and backup procedures before production.
+- Use one VAPID key pair per organization and environment. Store the private key encrypted in the database; keep its AES encryption key separately in backend secret configuration. Define key rotation and backup procedures before production.
 - Validate and constrain notification fields and destination URLs. Protect click redirects against unsafe schemes and open-redirect abuse.
 - Apply authentication throttling, API rate limits, payload limits, and usage controls. Provide auditable administrative actions.
 - Authentication middleware must validate JWT signature and expiry, bind the token to the user's assigned Soochak hostname (not the customer's website origin), and load a safe user projection. Never return decoded token contents in errors or log raw token values; the current guard and token helper need this cleanup before route enforcement. Resolve the request hostname to the prototype workspace.

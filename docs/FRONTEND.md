@@ -25,8 +25,8 @@ Set `VITE_API_BASE_URL` to the API base URL when needed; the default is `/api/v1
 | `/notifications` | Notification history | UI exists; backend `GET /web-push/notify` is under development and the adapter returns simulated history on errors. |
 | `/notifications/compose` | Compose and send | UI calls `PUT /api/v1/web-push/notify`; current backend emits an asynchronous event but does not confirm provider delivery. |
 | `/subscribers` | Push subscribers | UI and adapters call subscriber list/query/create/delete endpoints. |
-| `/sites` | Sites and resources | UI exists; site/resource CRUD currently uses in-memory simulated data because resource endpoints are not implemented. |
-| `/config` | Push configuration | UI calls `GET /api/v1/web-push/config` for the public VAPID key. Private keys are not displayed. |
+| `/sites` | Sites and resources | Register/remove exact HTTPS website origins per workspace and download a client module and Service Worker handler. Origin ownership is not verified. |
+| `/config` | Push configuration | UI calls `GET /api/v1/web-push/config` for the workspace's public VAPID key, creating a pair if missing. Private keys are not displayed. |
 | `/administration` | Users, roles, and permissions | One user is assigned per hostname; additional user creation is unsupported. Role/permission UI remains read-only seeded data because those CRUD routes are not mounted. Vendor administration is not implemented. |
 | `/settings` | Organization settings | UI calls organization list/read/update/delete routes. DNS/hostname verification is not available. |
 | `/profile` | Profile and security | UI calls the mounted `/api/v1/me` routes for profile reads/updates, password changes, and logout. |
@@ -37,7 +37,7 @@ Authenticated pages are nested under the application layout with a responsive si
 
 `src/services/apiClient.ts` centralizes the API base URL, cookie-session requests, and legacy bearer token handling. `src/services/apiAdapters.ts` contains auth, organization, Web Push, site, and administration adapters.
 
-The frontend supports seeded in-memory simulation data. Several adapters also fall back to simulated data when a network request fails, while notification history currently falls back on any request error. The auth context checks the backend session and does not create a demo login when no session exists. Treat the dashboard as a prototype/demo; a successful-looking UI action may be simulated and must not be interpreted as a backend result.
+The frontend supports seeded in-memory simulation data. Several adapters also fall back to simulated data when a network request fails, while notification history currently falls back on any request error. The VAPID configuration adapter uses seed data only in explicitly selected simulation mode and reports failures in live mode. The auth context checks the backend session and does not create a demo login when no session exists. Treat the dashboard as a prototype/demo; a successful-looking UI action may be simulated and must not be interpreted as a backend result.
 
 Known contract gaps to resolve before live use:
 
@@ -47,7 +47,7 @@ Known contract gaps to resolve before live use:
 - The target operator console is protected and uses `mgmt.soochak.optiwari.duckdns.org` in local development and `mgmt.soochak.bizbandhan.com` in production. During the prototype, each user has one unique Soochak dashboard/API hostname (`<slug>.soochak.optiwari.duckdns.org` locally, `<slug>.soochak.bizbandhan.com` in production), and that hostname identifies the personal workspace. The customer's website origin is separate. A separate tenant entity/ID is deferred until after market validation. The backend binds sessions and scopes user data by the request host, and enforces one user per hostname.
 - Direct operator-created organizations skip applicant review; the operator supplies the owner's initial password outside the system and the owner must change it at first login. Operator provisioning must gate activation.
 - Email verification, hostname ownership checks, custom dashboard domains, plan payment, and synchronized updates/configuration for self-hosted deployments are deferred.
-- Sites are local simulation data; there is no resource API contract yet.
+- Site origins are stored per workspace; per-site subscriber counts, quotas, and domain ownership verification are not implemented. The client kit uses the workspace API hostname and never includes credentials or private VAPID keys. Existing workers and subscriptions are not replaced automatically.
 - User/role/permission screens use static seed records; the documented routes are not mounted. Vendor has no backend model.
 - Subscriber/notification fields in demo records (such as tags and delivery stats) exceed the current backend schemas.
 - The API client still has legacy bearer-token persistence in `localStorage`, while current login uses an httpOnly cookie. Remove or explicitly retain the legacy path and define Secure/SameSite and CSRF protections before deployment.

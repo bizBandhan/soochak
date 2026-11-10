@@ -184,7 +184,7 @@ export const ProfileSecurityPage: React.FC = () => {
               className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded bg-red-950/50 hover:bg-red-900/60 text-red-300 border border-red-800/60 text-xs font-medium transition"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Log out (DELETE /auth)</span>
+              <span>Log out</span>
             </button>
           </div>
         </div>
@@ -196,7 +196,7 @@ export const ProfileSecurityPage: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
                 <User className="w-4 h-4" />
-                <span>Edit Profile Fields (PATCH /me)</span>
+                <span>Edit Profile Fields</span>
               </h3>
               <span className="font-mono text-[10px] text-slate-500">Current User Scope</span>
             </div>
@@ -272,7 +272,7 @@ export const ProfileSecurityPage: React.FC = () => {
                   className="flex items-center gap-2 px-4 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition shadow-sm"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>{isUpdatingProfile ? 'Saving...' : 'Update Profile (PATCH)'}</span>
+                  <span>{isUpdatingProfile ? 'Saving...' : 'Update Profile'}</span>
                 </button>
               </div>
             </form>
@@ -283,7 +283,7 @@ export const ProfileSecurityPage: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
                 <Lock className="w-4 h-4" />
-                <span>Change Password (POST /me)</span>
+                <span>Change Password</span>
               </h3>
               <span className="font-mono text-[10px] text-slate-500">Current & New Password</span>
             </div>
@@ -355,7 +355,7 @@ export const ProfileSecurityPage: React.FC = () => {
                   className="flex items-center gap-2 px-4 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition shadow-sm"
                 >
                   <Key className="w-3.5 h-3.5" />
-                  <span>{isChangingPassword ? 'Updating...' : 'Change Password (POST /me)'}</span>
+                  <span>{isChangingPassword ? 'Updating...' : 'Change Password'}</span>
                 </button>
               </div>
             </form>

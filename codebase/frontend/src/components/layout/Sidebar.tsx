@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   Settings,
   UserCheck,
-  Building,
   Radio,
   ExternalLink,
 } from 'lucide-react';
@@ -159,12 +158,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 </div>
               </NavLink>
 
-              <NavLink to="/register-org" className={navItemClass} onClick={onClose}>
-                <div className="flex items-center gap-2.5">
-                  <Building className="w-4 h-4 text-slate-400" />
-                  <span>Register Organization</span>
-                </div>
-              </NavLink>
             </div>
           </div>
 

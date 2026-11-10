@@ -1,14 +1,16 @@
 import express from "express";
 import mongoose from "mongoose";
 import { fallbackRoute, ExpressServer, eventStream, errorRoute } from "express-web-tools";
-import cors from "cors";
 import pureIP from "express-pureip";
 import cookieParser from "cookie-parser"
 import moduleRoutes from "../module/index.js";
 import healthRoutes from "./health.js";
 import { loadConfig } from "./config.js";
+import { corsMiddleware, isRequestOrigin, protectPublicPushOrigins } from "./cors.js";
+
+let config;
 (async () => {
-    const config = loadConfig();
+    config = loadConfig();
     await mongoose.connect(config.databaseUrl);
 
     let server = new ExpressServer();
@@ -16,14 +18,8 @@ import { loadConfig } from "./config.js";
         express.static("public"),
         express.json(),
         express.urlencoded({ extended: true }),
-        cors((req, callback) => {
-            const origin = req.get("origin");
-            callback(null, {
-                credentials: true,
-                methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-                origin: origin ? isRequestOrigin(origin, req) : false
-            });
-        }),
+        corsMiddleware,
+        protectPublicPushOrigins,
         cookieParser(),
         pureIP,
         setOrigin,
@@ -35,6 +31,7 @@ import { loadConfig } from "./config.js";
     ])
     server.start(config.port);
 })().catch((error) => {
+    console.log(error)
     console.error(JSON.stringify({
         time: new Date().toISOString(),
         event: "startup-failed",
@@ -75,19 +72,6 @@ function setOrigin(req, res, next) {
 }
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-
-function isRequestOrigin(origin, req) {
-    try {
-        const parsed = new URL(origin);
-        const forwardedProtocol = req.get("x-forwarded-proto")?.split(",")[0].trim();
-        const requestProtocol = forwardedProtocol || req.protocol;
-        return parsed.origin === origin
-            && parsed.host.toLowerCase() === req.get("host")?.toLowerCase()
-            && parsed.protocol === `${requestProtocol}:`;
-    } catch {
-        return false;
-    }
-}
 
 function protectCookieRequests(req, res, next) {
     if (

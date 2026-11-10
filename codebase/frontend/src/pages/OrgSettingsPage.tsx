@@ -75,7 +75,7 @@ export const OrgSettingsPage: React.FC = () => {
       });
       setFeedbackMsg({
         type: 'success',
-        text: 'Organization record updated successfully via PUT /auth/organization/{id}.',
+        text: 'Organization record updated successfully.',
       });
     } catch (err: any) {
       setFeedbackMsg({
@@ -107,7 +107,7 @@ export const OrgSettingsPage: React.FC = () => {
           </p>
         </div>
 
-        <StatusBadge status="connected" label="PUT /auth/organization/{id}" />
+        <StatusBadge status="connected" label="PUT" />
       </div>
 
       {feedbackMsg && (
@@ -256,7 +256,7 @@ export const OrgSettingsPage: React.FC = () => {
           Danger Zone
         </h2>
         <p className="text-xs text-slate-300 leading-relaxed">
-          Deleting this organization permanently removes the tenant record (<code className="font-mono text-red-300">DELETE /auth/organization/{organization?._id}</code>) and purges all subscriber endpoint associations. This action is irreversible.
+          Deleting this organization permanently removes the tenant record (<code className="font-mono text-red-300">DELETE</code>) and purges all subscriber endpoint associations. This action is irreversible.
         </p>
 
         <button
@@ -281,7 +281,7 @@ export const OrgSettingsPage: React.FC = () => {
           setShowDeleteModal(false);
           setFeedbackMsg({
             type: 'success',
-            text: 'DELETE /auth/organization/{id} executed in authenticated scope.',
+            text: 'DELETE executed in authenticated scope.',
           });
         }}
         onCancel={() => setShowDeleteModal(false)}
@@ -300,7 +300,7 @@ export const OrgSettingsPage: React.FC = () => {
                   HTTP 405 Method Not Allowed Verified
                 </h3>
                 <p className="mt-1 text-xs text-slate-300 leading-relaxed">
-                  Per the Soochak contract: <code className="text-amber-300 font-mono">PATCH /auth/organization/{'{id}'}</code> is unsupported. The frontend strictly uses <code className="text-cyan-300 font-mono">PUT /auth/organization/{'{id}'}</code> for organization updates.
+                  Per the Soochak contract: <code className="text-amber-300 font-mono">Update</code> is unsupported. The frontend strictly uses <code className="text-cyan-300 font-mono">Update</code> for organization updates.
                 </p>
               </div>
             </div>
