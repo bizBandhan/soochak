@@ -102,6 +102,10 @@ export interface NotificationPayload {
   icon?: string;
 }
 
+export type NotificationProviderSummary =
+  | { available: false }
+  | { available: true; total: number; queued: number; attempted: number; accepted: number; failed: number; expired: number; unknown: number };
+
 export interface NotificationRecord {
   _id: string;
   title: string;

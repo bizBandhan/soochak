@@ -23,8 +23,8 @@
 1. Owner submits organization name/slug, canonical customer website origin, owner details, contact email, and an owner-chosen password.
 2. System creates a pending-review organization and an owner account that is locked out of workspace dashboard/API access; it hashes the password and starts owner/role/permission provisioning.
 3. System reports a pending state and emails status updates to the submitted contact address. The address is not treated as verified identity.
-4. Platform operator reviews the request from the protected management portal (`mgmt.soochak.optiwari.duckdns.org` locally, `mgmt.soochak.bizbandhan.com` in production).
-5. On approval, the system activates workspace access only after required provisioning succeeds and assigns the user's unique Soochak hostname from the organization slug (`<slug>.soochak.optiwari.duckdns.org` locally, `<slug>.soochak.bizbandhan.com` in production).
+4. Platform operator reviews the request from the protected management portal (`mgmt.bizbandhan.duckdns.org` locally, `mgmt.soochak.bizbandhan.com` in production).
+5. On approval, the system activates workspace access only after required provisioning succeeds and assigns the user's unique Soochak hostname from the organization slug (`<slug>.bizbandhan.duckdns.org` locally, `<slug>.soochak.bizbandhan.com` in production).
 6. On request-changes, the system emails the reason; owner signs in with the chosen password to a restricted registration area, edits the request, and resubmits. This does not grant workspace access.
 7. On rejection, the system emails the reason; owner must submit a new registration.
 8. The response and email never expose the submitted password or password hash.
@@ -40,7 +40,7 @@
 
 1. Operator enters organization and owner details, including an initial owner password.
 2. System creates the organization and starts owner/role/permission provisioning without applicant review.
-3. System keeps workspace access disabled until provisioning succeeds, then assigns the owner's unique Soochak hostname from the organization slug (`<slug>.soochak.optiwari.duckdns.org` locally, `<slug>.soochak.bizbandhan.com` in production) and activates it.
+3. System keeps workspace access disabled until provisioning succeeds, then assigns the owner's unique Soochak hostname from the organization slug (`<slug>.bizbandhan.duckdns.org` locally, `<slug>.soochak.bizbandhan.com` in production) and activates it.
 4. Operator communicates the initial password to the owner outside the system.
 5. Owner changes the initial password at first login.
 

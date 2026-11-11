@@ -22,26 +22,30 @@ import {
   Layers,
 } from 'lucide-react';
 import { webPushService } from '../services/apiAdapters';
-import type { NotificationRecord } from '../types';
+import type { NotificationRecord, NotificationProviderSummary } from '../types';
 import { StatusBadge } from '../components/common/StatusBadge';
 
 export const NotificationsPage: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [backendUnderDev, setBackendUnderDev] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('all');
   const [activeRecord, setActiveRecord] = useState<NotificationRecord | null>(null);
+  const [providerStatus, setProviderStatus] = useState<NotificationProviderSummary | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [statusRefresh, setStatusRefresh] = useState(0);
 
   const loadNotifications = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await webPushService.listNotifications();
       setNotifications(res.records);
-      setBackendUnderDev(res.backendUnderDevelopment);
-      if (res.records.length > 0 && !activeRecord) {
-        setActiveRecord(res.records[0]);
-      }
+      setActiveRecord(current => res.records.find(record => record._id === current?._id) ?? res.records[0] ?? null);
+      setStatusRefresh(value => value + 1);
+    } catch (error: unknown) {
+      setLoadError(error instanceof Error ? error.message : 'Failed to load notifications.');
     } finally {
       setLoading(false);
     }
@@ -50,6 +54,19 @@ export const NotificationsPage: React.FC = () => {
   useEffect(() => {
     loadNotifications();
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    setProviderStatus(null);
+    setStatusError(null);
+    if (activeRecord) {
+      void webPushService.notificationStatus(activeRecord._id).then(
+        result => { if (active) setProviderStatus(result); },
+        error => { if (active) setStatusError(error instanceof Error ? error.message : 'Failed to load provider status.'); },
+      );
+    }
+    return () => { active = false; };
+  }, [activeRecord?._id, statusRefresh]);
 
   const tags = ['all', ...Array.from(new Set(notifications.map((n) => n.tag).filter(Boolean) as string[]))];
 
@@ -76,7 +93,7 @@ export const NotificationsPage: React.FC = () => {
             <span>Push Notifications History</span>
           </h1>
           <p className="mt-1 text-xs text-slate-400">
-            Log of emitted Web Push notifications, audience tagging, and ingestion status.
+            Persisted notifications and per-provider outcome counts.
           </p>
         </div>
 
@@ -108,22 +125,11 @@ export const NotificationsPage: React.FC = () => {
             Architecture Notice: Ingestion vs End-User Display
           </p>
           <p className="text-[11px] text-slate-300 leading-relaxed">
-            Per the Soochak contract, dispatching a notification via <code className="text-cyan-300 font-mono">PUT /web-push/notify</code> persists the message record and emits an asynchronous delivery event to push services (Apple APNs, Google FCM, Mozilla autopush). Status <span className="font-mono text-cyan-300">"Accepted for Processing"</span> confirms queue acceptance and protocol fan-out, but does not guarantee client device screen display (which depends on subscriber device power state, OS notification permissions, and network availability).
+            Provider acceptance does not confirm delivery to a device. Device delivery/display and click tracking are planned for the next version.
           </p>
         </div>
+        {loadError && <p role="alert" className="text-xs text-red-400">{loadError}</p>}
       </div>
-
-      {backendUnderDev && (
-        <div className="p-3 rounded-lg border border-amber-900/40 bg-amber-950/30 text-xs text-amber-200/90 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>
-              Backend Route Status: <code className="font-mono text-amber-300">GET /web-push/notify</code> returns 502 in the current server release. Client session logs are displayed.
-            </span>
-          </div>
-          <StatusBadge status="planned" label="502 Backend Planned" />
-        </div>
-      )}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -217,7 +223,7 @@ export const NotificationsPage: React.FC = () => {
                       <div>
                         <StatusBadge
                           status="accepted"
-                          label="Accepted"
+                          label="Saved"
                         />
                         <div className="mt-1 text-[10px] text-slate-500 font-mono">
                           ID: {item._id.slice(0, 8)}
@@ -277,7 +283,7 @@ export const NotificationsPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 text-[11px]">Audience Tag:</span>
+                  <span className="text-slate-400 text-[11px]">Notification Tag:</span>
                   <span className="font-mono text-slate-200">
                     {activeRecord.tag ? `#${activeRecord.tag}` : 'All Subscribers'}
                   </span>
@@ -291,8 +297,8 @@ export const NotificationsPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 text-[11px]">Ingestion Pipeline Status:</span>
-                  <StatusBadge status="accepted" label="Accepted for Processing" />
+                  <span className="text-slate-400 text-[11px]">Record Status:</span>
+                  <StatusBadge status="accepted" label="Saved" />
                 </div>
               </div>
 
@@ -300,18 +306,26 @@ export const NotificationsPage: React.FC = () => {
               <div className="p-3 rounded-lg bg-slate-950/90 border border-slate-800 space-y-1.5">
                 <div className="flex items-center gap-1.5 text-cyan-300 font-semibold text-[11px]">
                   <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Pipeline Event Dispatched</span>
+                  <span>Provider status</span>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  {activeRecord.deliveryStats?.note ||
-                    'Accepted by Soochak ingestion pipeline. Upstream push event dispatched to subscriber gateways.'}
-                </p>
-                <div className="pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                  <span>Queued Target Count:</span>
-                  <span className="text-slate-300">
-                    {activeRecord.deliveryStats?.queuedCount || 'All'} recipients
-                  </span>
-                </div>
+                {statusError ? <p role="alert" className="text-red-400">{statusError}</p> :
+                  !providerStatus ? <p>Loading provider status...</p> :
+                  !providerStatus.available ? <p>Status unavailable for notifications created before tracking was enabled.</p> :
+                  <dl className="space-y-1">
+                    {([
+                      ['Total recipients', providerStatus.total],
+                      ['Queued', providerStatus.queued],
+                      ['Attempt in progress', providerStatus.attempted],
+                      ['Provider accepted', providerStatus.accepted],
+                      ['Provider rejected', providerStatus.failed],
+                      ['Expired', providerStatus.expired],
+                      ['Unknown outcome', providerStatus.unknown],
+                    ] as const).map(([label, count]) => (
+                      <div key={label} className="flex justify-between"><dt>{label}</dt><dd>{count}</dd></div>
+                    ))}
+                  </dl>}
+                <p className="text-[11px] text-slate-400">Unknown outcomes are not automatically resent. Expired subscriptions are reported but not automatically removed.</p>
+                <p className="text-[11px] text-slate-400">Device delivery/display and click tracking: next version.</p>
               </div>
             </div>
           ) : (

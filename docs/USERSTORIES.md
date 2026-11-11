@@ -19,7 +19,7 @@ As a prospective organization owner, I want to submit my organization, primary w
 As a platform operator, I want a protected management portal to approve, request changes, or reject registration requests so that new tenants are reviewed before activation.
 
 **Acceptance criteria**
-- The operator portal uses `mgmt.soochak.optiwari.duckdns.org` in local development and `mgmt.soochak.bizbandhan.com` in production.
+- The operator portal uses `mgmt.bizbandhan.duckdns.org` in local development and `mgmt.soochak.bizbandhan.com` in production.
 - Approving activates the tenant only after required provisioning succeeds.
 - Requesting changes includes a reason; the applicant can use password sign-in to a restricted registration area and edit/resubmit without tenant dashboard/API access.
 - Rejection includes a reason; the applicant must submit a new registration.

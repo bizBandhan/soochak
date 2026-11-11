@@ -5,7 +5,7 @@
  * Follows OpenAPI & Schemas contract
  */
 
-import { apiClient, SEED_ORGANIZATION, SEED_USER, SEED_VAPID_CONFIG, SEED_SUBSCRIBERS, SEED_NOTIFICATIONS, SEED_ADMIN_USERS, SEED_ROLES, SEED_PERMISSIONS } from './apiClient';
+import { apiClient } from './apiClient';
 import type {
   Organization,
   OrganizationRegistrationPayload,
@@ -14,18 +14,13 @@ import type {
   PushSubscriber,
   NotificationPayload,
   NotificationRecord,
+  NotificationProviderSummary,
   PublicVapidConfig,
   SiteResource,
   ManagedUser,
   Role,
   Permission,
 } from '../types';
-
-// In-memory local stores for simulation/testing mode
-let simSubscribers: PushSubscriber[] = [...SEED_SUBSCRIBERS];
-let simNotifications: NotificationRecord[] = [...SEED_NOTIFICATIONS];
-let simOrg: Organization = { ...SEED_ORGANIZATION };
-let simUser: UserProfile = { ...SEED_USER };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -94,40 +89,9 @@ export const authService = {
    * Returns token and user profile
    */
   async login(credentials: { user: string; password: string }): Promise<{ token: string | null; user: UserProfile }> {
-    try {
-      const res = await apiClient.api.put('/auth', credentials);
-      // The session is an httpOnly cookie set by the server; no token is kept in JS or storage.
-      apiClient.setToken(null);
-      return { token: null, user: normalizeCurrentUser(res) };
-    } catch (err: any) {
-      // Simulated login runs only when the simulation toggle is on, never to hide a real failure.
-      if (apiClient.isSimulationMode) {
-        // Simple rate-limit simulation test check: if password is "ratelimit"
-        if (credentials.password === 'ratelimit') {
-          const rateErr: any = new Error('Too many login attempts. Please wait 60 seconds before trying again.');
-          rateErr.status = 429;
-          throw rateErr;
-        }
-
-        if (credentials.password.length < 6) {
-          const valErr: any = new Error('Password must be at least 6 characters.');
-          valErr.status = 400;
-          throw valErr;
-        }
-
-        // Return simulated user
-        const token = 'sim_jwt_tk_' + Date.now();
-        apiClient.setToken(token);
-        return {
-          token,
-          user: {
-            ...simUser,
-            user: credentials.user || simUser.user,
-          },
-        };
-      }
-      throw err;
-    }
+    const res = await apiClient.api.put('/auth', credentials);
+    apiClient.setToken(null);
+    return { token: null, user: normalizeCurrentUser(res) };
   },
 
   /**
@@ -144,16 +108,8 @@ export const authService = {
    * Update current user profile fields
    */
   async updateProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
-    try {
-      const res = await apiClient.api.patch('/me', updates);
-      return normalizeCurrentUser(res);
-    } catch (err: any) {
-      if (apiClient.isSimulationMode) {
-        simUser = { ...simUser, ...updates };
-        return simUser;
-      }
-      throw err;
-    }
+    const res = await apiClient.api.patch('/me', updates);
+    return normalizeCurrentUser(res);
   },
 
   /**
@@ -161,18 +117,9 @@ export const authService = {
    * Change current password
    */
   async changePassword(passwords: { currentPassword: string; newPassword: string }): Promise<{ message: string }> {
-    try {
-      const res = await apiClient.api.post('/me', passwords);
-      return { message: res?.message || 'Password updated successfully.' };
-    } catch (err: any) {
-      if (apiClient.isSimulationMode) {
-        if (passwords.newPassword.length < 8) {
-          throw new Error('New password must be at least 8 characters long.');
-        }
-        return { message: 'Password updated successfully. Session preserved.' };
-      }
-      throw err;
-    }
+    const res = await apiClient.api.post('/me', passwords);
+    if (res?.status !== 'success') throw new Error('The server did not confirm the password update.');
+    return { message: res.message || 'Password updated successfully.' };
   },
 
   /**
@@ -180,13 +127,8 @@ export const authService = {
    * Logout and invalidate session
    */
   async logout(): Promise<void> {
-    try {
-      await apiClient.api.delete('/auth');
-    } catch {
-      // Still clear local token even if network failed
-    } finally {
-      apiClient.setToken(null);
-    }
+    await apiClient.api.delete('/auth');
+    apiClient.setToken(null);
   },
 };
 
@@ -198,13 +140,10 @@ export const organizationService = {
   async list(): Promise<Organization[]> {
     try {
       const res = await apiClient.api.get('/auth/organization');
-      return Array.isArray(res) ? res : res.data || [simOrg];
-    } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        return [simOrg];
-      }
-      throw err;
-    }
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res.data)) return res.data;
+      throw new Error('The server did not return an organization list.');
+    } catch (err: any) { throw err; }
   },
 
   /**
@@ -214,13 +153,10 @@ export const organizationService = {
   async search(query: any): Promise<Organization[]> {
     try {
       const res = await apiClient.api.post('/auth/organization', query);
-      return Array.isArray(res) ? res : res.data || [simOrg];
-    } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        return [simOrg];
-      }
-      throw err;
-    }
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res.data)) return res.data;
+      throw new Error('The server did not return an organization list.');
+    } catch (err: any) { throw err; }
   },
 
   /**
@@ -259,41 +195,6 @@ export const organizationService = {
         warningNote: 'Your personal workspace is ready. Sign in on its hostname using the credentials you just created.',
       };
     } catch (err: any) {
-      if (apiClient.isSimulationMode) {
-        const newOrg: Organization = {
-          _id: 'org_' + payload.slug + '_' + Date.now().toString(36),
-          name: payload.name,
-          slug: payload.slug,
-          canonicalOrigin: 'https://' + payload.slug + '.example.com',
-          allowedOrigins: ['https://' + payload.slug + '.example.com'],
-          limits: {
-            maxSubscribers: payload.limits?.maxSubscribers || 10000,
-            maxNotificationsPerDay: payload.limits?.maxNotificationsPerDay || 1000,
-          },
-          createdAt: new Date().toISOString(),
-          ownerId: 'usr_' + payload.owner.user,
-          ownerName: `${payload.owner.name.first} ${payload.owner.name.last}`,
-          hostnameVerified: false, // Explicitly unavailable
-          status: 'pending_provisioning',
-        };
-        simOrg = newOrg;
-        const platformRoots = [
-          'soochak.optiwari.duckdns.org',
-          'soochak.bizbandhan.com',
-        ];
-        const currentHostname = window.location.hostname.toLowerCase();
-        const platformRoot = platformRoots.find((root) =>
-          currentHostname === root || currentHostname.endsWith(`.${root}`),
-        ) || currentHostname;
-        const workspaceHost = `${payload.slug.toLowerCase()}.${platformRoot}`;
-        return {
-          organization: { _id: newOrg._id, name: newOrg.name, slug: newOrg.slug },
-          workspaceHost,
-          workspaceUrl: `https://${workspaceHost}`,
-          provisioningStatus: 'owner_provisioned',
-          warningNote: 'Simulation only: no workspace was created by the backend.',
-        };
-      }
       throw err;
     }
   },
@@ -306,9 +207,6 @@ export const organizationService = {
       const res = await apiClient.api.get(`/auth/organization/${id}`);
       return res.data || res;
     } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        return simOrg;
-      }
       throw err;
     }
   },
@@ -322,10 +220,6 @@ export const organizationService = {
       const res = await apiClient.api.put(`/auth/organization/${id}`, updates);
       return res.data || res;
     } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        simOrg = { ...simOrg, ...updates };
-        return simOrg;
-      }
       throw err;
     }
   },
@@ -337,9 +231,6 @@ export const organizationService = {
     try {
       await apiClient.api.delete(`/auth/organization/${id}`);
     } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        return;
-      }
       throw err;
     }
   },
@@ -360,7 +251,6 @@ export const webPushService = {
    * Returns public VAPID key
    */
   async getConfig(): Promise<PublicVapidConfig> {
-    if (apiClient.isSimulationMode) return SEED_VAPID_CONFIG;
     const res: unknown = await apiClient.api.get('/web-push/config');
     const payload: unknown = isRecord(res) && 'data' in res ? res.data : res;
     if (typeof payload !== 'string' || !payload) {
@@ -378,11 +268,10 @@ export const webPushService = {
   async listSubscribers(): Promise<PushSubscriber[]> {
     try {
       const res = await apiClient.api.get('/web-push/subscriber');
-      return Array.isArray(res) ? res : res.data || simSubscribers;
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res.data)) return res.data;
+      throw new Error('The server did not return a subscriber list.');
     } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        return simSubscribers;
-      }
       throw err;
     }
   },
@@ -394,16 +283,10 @@ export const webPushService = {
   async querySubscribers(query: { tag?: string; origin?: string; search?: string }): Promise<PushSubscriber[]> {
     try {
       const res = await apiClient.api.post('/web-push/subscriber', query);
-      return Array.isArray(res) ? res : res.data || simSubscribers;
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res.data)) return res.data;
+      throw new Error('The server did not return a subscriber list.');
     } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        return simSubscribers.filter((s) => {
-          if (query.tag && s.tag !== query.tag) return false;
-          if (query.origin && s.origin !== query.origin) return false;
-          if (query.search && !s.endpoint.toLowerCase().includes(query.search.toLowerCase())) return false;
-          return true;
-        });
-      }
       throw err;
     }
   },
@@ -417,20 +300,6 @@ export const webPushService = {
       const res = await apiClient.api.put('/web-push/subscriber', subscriber);
       return res.data || res;
     } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        const created: PushSubscriber = {
-          _id: 'sub_' + Date.now().toString(36),
-          endpoint: subscriber.endpoint || 'https://fcm.googleapis.com/fcm/send/new_token_' + Date.now(),
-          keys: subscriber.keys || { p256dh: 'BNcDemoKey', auth: 'DemoAuth' },
-          origin: subscriber.origin || simOrg.canonicalOrigin,
-          userAgent: subscriber.userAgent || navigator.userAgent,
-          tag: subscriber.tag || 'general',
-          active: true,
-          createdAt: new Date().toISOString(),
-        };
-        simSubscribers = [created, ...simSubscribers];
-        return created;
-      }
       throw err;
     }
   },
@@ -443,17 +312,13 @@ export const webPushService = {
     try {
       await apiClient.api.delete(`/web-push/subscriber/${encodeURIComponent(id)}`);
     } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        simSubscribers = simSubscribers.filter((s) => s._id !== id);
-        return;
-      }
       throw err;
     }
   },
 
   /**
    * PUT /web-push/notify
-   * Accepts notification payload, persists notification, and emits async delivery event.
+   * Persists the notification and starts in-process provider dispatch.
    * Note: The response means "accepted for processing", NOT confirmed provider delivery or client display.
    */
   async notify(payload: NotificationPayload): Promise<{
@@ -465,60 +330,67 @@ export const webPushService = {
   }> {
     try {
       const res = await apiClient.api.put('/web-push/notify', payload);
+      if (!res?.data?._id || !res.data.createdAt) {
+        throw new Error('The server did not return a valid notification record.');
+      }
       return {
         success: true,
-        notificationId: res.notificationId || res.data?.id || 'notif_' + Date.now(),
+        notificationId: res.data._id,
         status: 'accepted',
-        message: 'Notification persisted and accepted into Soochak push pipeline. Delivery event emitted.',
-        persistedAt: new Date().toISOString(),
+        message: 'Notification saved and provider dispatch started. Check notification history for provider outcomes.',
+        persistedAt: res.data.createdAt,
       };
     } catch (err: any) {
-      if (apiClient.isSimulationMode || err.message?.includes('Failed to fetch')) {
-        const notifId = 'notif_' + Date.now().toString(36);
-        const newRecord: NotificationRecord = {
-          _id: notifId,
-          title: payload.title,
-          body: payload.body,
-          url: payload.url,
-          tag: payload.tag,
-          icon: payload.icon,
-          status: 'accepted',
-          acceptedAt: new Date().toISOString(),
-          targetAudience: payload.tag ? 'tag_filtered' : 'all',
-          targetTag: payload.tag,
-          deliveryStats: {
-            totalRecipients: simSubscribers.length,
-            queuedCount: simSubscribers.length,
-            note: 'Payload persisted in organization log. Outbound Web Push dispatch event emitted to upstream FCM/Mozilla/Apple gateways.',
-          },
-        };
-        simNotifications = [newRecord, ...simNotifications];
-        return {
-          success: true,
-          notificationId: notifId,
-          status: 'accepted',
-          message: 'Notification persisted and accepted into Soochak push pipeline. Delivery event emitted.',
-          persistedAt: new Date().toISOString(),
-        };
-      }
       throw err;
     }
   },
 
   /**
-   * List notifications history (GET /web-push/notify returns 502 in current backend)
+   * List persisted notification records.
    */
   async listNotifications(): Promise<{ records: NotificationRecord[]; backendUnderDevelopment: boolean }> {
     try {
       const res = await apiClient.api.get('/web-push/notify');
-      return { records: res.data || res, backendUnderDevelopment: false };
-    } catch (err: any) {
-      // Contract states: GET, POST, PATCH, and DELETE /web-push/notify currently return 502 as under development.
+      const records: unknown = Array.isArray(res) ? res : res.data;
+      if (!Array.isArray(records)) throw new Error('The server did not return notification records.');
       return {
-        records: simNotifications,
-        backendUnderDevelopment: true,
+        records: records.map((record: unknown) => {
+          if (!isRecord(record) || typeof record._id !== 'string' || typeof record.title !== 'string'
+            || typeof record.body !== 'string' || typeof record.url !== 'string'
+            || typeof record.createdAt !== 'string') {
+            throw new Error('The server returned an invalid notification record.');
+          }
+          return {
+            _id: record._id, title: record.title, body: record.body, url: record.url,
+            tag: typeof record.tag === 'string' ? record.tag : undefined,
+            acceptedAt: record.createdAt, status: 'accepted' as const, targetAudience: 'all' as const,
+          };
+        }),
+        backendUnderDevelopment: false,
       };
+    } catch (err: any) {
+      throw err;
     }
+  },
+  async notificationStatus(id: string): Promise<NotificationProviderSummary> {
+    const response: unknown = await apiClient.api.get(`/web-push/notify/${encodeURIComponent(id)}/status`);
+    const data = isRecord(response) ? response.data : undefined;
+    if (!isRecord(data) || typeof data.available !== 'boolean') {
+      throw new Error('The server did not return valid provider status.');
+    }
+    if (!data.available) return { available: false };
+    const fields = ['total', 'queued', 'attempted', 'accepted', 'failed', 'expired', 'unknown'] as const;
+    if (fields.some((key) => {
+      const value = data[key];
+      return typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0;
+    })) {
+      throw new Error('The server returned invalid provider status counts.');
+    }
+    return {
+      available: true,
+      total: Number(data.total), queued: Number(data.queued), attempted: Number(data.attempted),
+      accepted: Number(data.accepted), failed: Number(data.failed), expired: Number(data.expired), unknown: Number(data.unknown),
+    };
   },
 };
 
@@ -546,18 +418,5 @@ export const sitesService = {
     if (!isRecord(response) || response.status !== 'success') {
       throw new Error(isRecord(response) && typeof response.message === 'string' ? response.message : 'Failed to remove site.');
     }
-  },
-};
-
-export const adminService = {
-  // /auth/user is mounted in the backend but this page still uses seed data; /auth/role and /auth/permission are not mounted yet
-  async getUsers(): Promise<ManagedUser[]> {
-    return SEED_ADMIN_USERS;
-  },
-  async getRoles(): Promise<Role[]> {
-    return SEED_ROLES;
-  },
-  async getPermissions(): Promise<Permission[]> {
-    return SEED_PERMISSIONS;
   },
 };

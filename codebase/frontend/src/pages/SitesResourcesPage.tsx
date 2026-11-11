@@ -12,12 +12,10 @@ import { createClientScript, downloadScript, workerScript } from '../services/in
 import type { SiteResource, PublicVapidConfig } from '../types';
 import { CodeSnippet } from '../components/common/CodeSnippet';
 import { ConfirmModal } from '../components/common/ConfirmModal';
-import { useAuth } from '../context/AuthContext';
 
 type SiteFormValues = Pick<SiteResource, 'name' | 'origin' | 'serviceWorkerPath'>;
 
 export const SitesResourcesPage: React.FC = () => {
-  const { isSimulationMode } = useAuth();
   const [sites, setSites] = useState<SiteResource[]>([]);
   const [config, setConfig] = useState<PublicVapidConfig | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -82,7 +80,7 @@ export const SitesResourcesPage: React.FC = () => {
     }
   };
 
-  const clientScript = config?.publicKey && !isSimulationMode
+  const clientScript = config?.publicKey
     ? createClientScript(window.location.origin, config.publicKey) : null;
   const inputClass = 'mt-1 block w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded text-white';
   const buttonClass = 'inline-flex items-center gap-2 px-3 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs disabled:opacity-50';
@@ -97,7 +95,6 @@ export const SitesResourcesPage: React.FC = () => {
         <button type="button" className={buttonClass} onClick={() => setShowAdd(true)}><Plus className="w-4 h-4" /> Add Website Origin</button>
       </div>
       {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
-      {isSimulationMode && <p className="text-xs text-amber-400">Switch off simulation mode to download a working integration kit.</p>}
       <div className="p-4 rounded-xl border border-cyan-900/60 bg-cyan-950/30 text-xs text-cyan-200 flex gap-3">
         <ShieldAlert className="w-5 h-5 shrink-0" />
         <p>Keep existing Service Workers. If the site already handles push or notification clicks, merge the downloaded handlers rather than adding duplicate listeners. Origin access is not domain ownership verification.</p>

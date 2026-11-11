@@ -15,6 +15,12 @@ For a subdirectory deployment, register the site's origin without the path (for 
 
 The demo refuses to replace an existing Service Worker covering the page. To test against an existing worker, add the downloaded handler to that worker (or merge its push and click handlers if it already handles those events), deploy the updated existing worker, and use **Subscribe** without registering the demo worker. This demo cannot verify that an existing worker actually contains the handler.
 
+## After a workspace hostname change or database reset
+
+Sign in to the new workspace over HTTPS, add the demo's exact origin again if it is not registered, and download and deploy a fresh client and worker handler. The client embeds the workspace API URL and VAPID public key, so an old download cannot be reused after a reset creates a new key.
+
+A browser may still have the old push subscription. The client will refuse to replace a subscription using another VAPID key. On a dedicated demo site where the existing worker and subscription are yours to remove, use the browser's developer tools to unregister that demo Service Worker, close and reopen the demo page, then register the worker and subscribe again. This removes the old browser subscription; do not unregister an unrelated or shared Service Worker. For an existing application worker, manage the old subscription through that application's own unsubscribe process instead. If the old backend has been reset, its subscriber record is already gone.
+
 If the client cannot load, check that the files were uploaded with the names above and served as JavaScript. If the subscription request fails, verify the workspace URL embedded in the downloaded client, the exact allowed origin, HTTPS access, the browser permission, and the workspace plan limit. For iOS/iPadOS, test Web Push in a supported browser and installation context. Do not share subscription endpoints or private keys in test reports.
 
 ## Tests

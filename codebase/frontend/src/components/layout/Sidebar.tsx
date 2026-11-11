@@ -62,7 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 {organization?.name || 'BizBandhan Tech'}
               </h2>
               <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono truncate">
-                <span className="truncate">{organization?.canonicalOrigin ? new URL(organization.canonicalOrigin).hostname : 'bizbandhan.com'}</span>
+                <span className="truncate">{organization?.canonicalOrigin ? new URL(organization.canonicalOrigin).hostname : 'Not configured'}</span>
               </div>
             </div>
           </div>

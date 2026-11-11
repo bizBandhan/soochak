@@ -16,6 +16,8 @@ const noteSchema = new MongooseModel(
         url: {
             type: String
         },
+        trackingStartedAt: Date,
+        trackingHeartbeatAt: Date,
     }),
     [],
     {},

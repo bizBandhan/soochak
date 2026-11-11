@@ -13,7 +13,7 @@ info:
     (body `{ "action": "move-up" | "move-down" }`; disabled with 405 where
     ordering is not meaningful, e.g. organizations).
 servers:
-  - url: https://soochak.optiwari.duckdns.org/api/v1
+  - url: https://bizbandhan.duckdns.org/api/v1
     description: Current API host
 tags:
   - name: Authentication and current user
@@ -801,7 +801,7 @@ paths:
     put:
       tags: [Web Push]
       summary: Send a notification to current subscribers
-      description: Requires the web-push:notify edit:organization grant. Persists the notification and emits the asynchronous Web Push delivery event when the workspace's daily quota is available. The daily quota uses UTC calendar days and counts notification requests.
+      description: Requires the web-push:notify edit:organization grant. Persists per-subscriber queued attempts and starts in-process dispatch. Provider outcomes are available through the status endpoint. The daily quota uses UTC calendar days and counts notification requests. This is not a durable queue and uncertain outcomes are not resent automatically.
       operationId: sendWebPushNotification
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       requestBody:
@@ -811,7 +811,7 @@ paths:
             schema: { $ref: './schemas.yml#/components/schemas/NotificationInput' }
       responses:
         '200':
-          description: Notification record created and delivery event emitted.
+          description: Notification and queued provider attempts recorded. This does not confirm provider acceptance or device delivery.
           content:
             application/json:
               schema: { $ref: './schemas.yml#/components/schemas/NotificationResponse' }
@@ -821,40 +821,60 @@ paths:
         '429': { description: The workspace plan's daily notification quota has been reached. }
     get:
       tags: [Web Push]
-      summary: List notifications (under development)
+      summary: List saved notifications in the workspace
       operationId: listNotifications
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
-        '502': { description: Endpoint is currently under development. }
+        '200': { description: Saved notifications. }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Web Push]
-      summary: Query notifications (under development)
+      summary: Query saved notifications in the workspace
       operationId: queryNotifications
       security: [{ bearerAuth: [] }, { authCookie: [] }]
       responses:
-        '502': { description: Endpoint is currently under development. }
+        '200': { description: Matching notifications. }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-    patch:
+  /web-push/notify/{id}/status:
+    get:
       tags: [Web Push]
-      summary: Update notifications (under development)
-      operationId: updateNotifications
+      summary: Read provider outcome counts for a notification
+      description: Requires the web-push:notify edit:organization grant. Provider acceptance does not confirm device delivery. Display and click tracking are planned for a later version. Unknown outcomes are not retried automatically; expired subscriptions are reported but not removed.
+      operationId: getNotificationProviderStatus
       security: [{ bearerAuth: [] }, { authCookie: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
       responses:
-        '502': { description: Endpoint is currently under development. }
+        '200':
+          description: Provider counts or unavailable for notifications created before tracking was introduced. Queued and in-progress attempts with a stale dispatcher heartbeat are counted as unknown.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, enum: [success] }
+                  data:
+                    type: object
+                    required: [available]
+                    properties:
+                      available: { type: boolean }
+                      total: { type: integer, minimum: 0 }
+                      queued: { type: integer, minimum: 0 }
+                      attempted: { type: integer, minimum: 0, description: Attempts in progress. }
+                      accepted: { type: integer, minimum: 0 }
+                      failed: { type: integer, minimum: 0 }
+                      expired: { type: integer, minimum: 0 }
+                      unknown: { type: integer, minimum: 0 }
+        '400': { description: Invalid notification ID. }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-    delete:
-      tags: [Web Push]
-      summary: Delete notifications (under development)
-      operationId: deleteNotifications
-      security: [{ bearerAuth: [] }, { authCookie: [] }]
-      responses:
-        '502': { description: Endpoint is currently under development. }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Notification not found in this workspace. }
   /auth/organization:
     get:
       tags: [Organization administration]

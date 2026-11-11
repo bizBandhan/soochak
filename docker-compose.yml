@@ -1,4 +1,14 @@
 services:
+  tenent1:
+    image: optiwariindia/gateway:1.0.0
+    restart: unless-stopped
+    ports:
+      - 8081:80
+    volumes:
+      - ./codebase/demo-site/nginx.conf:/etc/nginx/http.d/default.conf
+      - ./codebase/demo-site:/var/www/html
+    networks:
+      - soochak
   soochak: # Gateway service NGINX
     image: optiwariindia/gateway:1.0.0
     restart: unless-stopped

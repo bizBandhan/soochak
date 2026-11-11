@@ -12,7 +12,7 @@ import type {
   OrganizationRegistrationResult,
 } from '../types';
 import { authService, organizationService } from '../services/apiAdapters';
-import { apiClient, SEED_ORGANIZATION } from '../services/apiClient';
+import { apiClient } from '../services/apiClient';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -20,8 +20,6 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  isSimulationMode: boolean;
-  setSimulationMode: (enabled: boolean) => void;
   login: (credentials: { user: string; password: string }) => Promise<{ token: string | null; user: UserProfile }>;
   registerOrganization: (payload: OrganizationRegistrationPayload) => Promise<OrganizationRegistrationResult>;
   logout: () => Promise<void>;
@@ -38,24 +36,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [token, setToken] = useState<string | null>(apiClient.getToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isSimulationMode, setIsSimulationModeState] = useState<boolean>(apiClient.isSimulationMode);
-
-  const setSimulationMode = useCallback((enabled: boolean) => {
-    apiClient.setSimulationMode(enabled);
-    setIsSimulationModeState(enabled);
-  }, []);
-
   const reloadOrg = useCallback(async () => {
-    try {
-      const orgs = await organizationService.list();
-      if (orgs.length > 0) {
-        setOrganization(orgs[0]);
-      } else {
-        setOrganization(SEED_ORGANIZATION);
-      }
-    } catch {
-      setOrganization(SEED_ORGANIZATION);
-    }
+    const orgs = await organizationService.list();
+    if (!orgs.length) throw new Error('No organization is available for this workspace.');
+    setOrganization(orgs[0]);
   }, []);
 
   const initAuth = useCallback(async () => {
@@ -105,9 +89,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       await authService.logout();
-    } finally {
       setUser(null);
+      setOrganization(null);
       setToken(null);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -137,8 +122,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isAuthenticated: !!user,
         isLoading,
-        isSimulationMode,
-        setSimulationMode,
         login,
         registerOrganization,
         logout,

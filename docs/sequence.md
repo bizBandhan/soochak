@@ -118,7 +118,7 @@ sequenceDiagram
     end
 ```
 
-The operator portal is hosted at `mgmt.soochak.optiwari.duckdns.org` in local development and `mgmt.soochak.bizbandhan.com` in production. Each prototype user receives one unique dashboard/API hostname derived from the organization slug: `<slug>.soochak.optiwari.duckdns.org` locally and `<slug>.soochak.bizbandhan.com` in production. Custom dashboard domains, email/hostname ownership verification, and plan payments are deferred. Self-hosted installations are a separate deployment path; central configuration/update synchronization is later-stage.
+The operator portal is hosted at `mgmt.bizbandhan.duckdns.org` in local development and `mgmt.soochak.bizbandhan.com` in production. Each prototype user receives one unique dashboard/API hostname derived from the organization slug: `<slug>.bizbandhan.duckdns.org` locally and `<slug>.soochak.bizbandhan.com` in production. Custom dashboard domains, email/hostname ownership verification, and plan payments are deferred. Self-hosted installations are a separate deployment path; central configuration/update synchronization is later-stage.
 
 ## Website subscription lifecycle
 

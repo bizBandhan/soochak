@@ -9,6 +9,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
+import { HomePage } from './pages/HomePage';
 import { RegisterOrgPage } from './pages/RegisterOrgPage';
 import { DashboardOverviewPage } from './pages/DashboardOverviewPage';
 import { NotificationsPage } from './pages/NotificationsPage';
@@ -20,23 +21,28 @@ import { UsersRolesPermissionsPage } from './pages/UsersRolesPermissionsPage';
 import { OrgSettingsPage } from './pages/OrgSettingsPage';
 import { ProfileSecurityPage } from './pages/ProfileSecurityPage';
 
+const SessionLoading: React.FC = () => (
+  <div className="h-screen w-full bg-slate-950 flex flex-col items-center justify-center text-slate-400">
+    <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mb-3" />
+    <span className="text-xs font-mono">Initializing Soochak session...</span>
+  </div>
+);
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
-    return (
-      <div className="h-screen w-full bg-slate-950 flex flex-col items-center justify-center text-slate-400">
-        <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mb-3" />
-        <span className="text-xs font-mono">Initializing Soochak session...</span>
-      </div>
-    );
-  }
-
+  if (isLoading) return <SessionLoading />;
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
+};
+
+const HomeOrDashboard: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return <SessionLoading />;
+  return isAuthenticated ? <AppLayout /> : <HomePage />;
 };
 
 export default function App() {
@@ -48,16 +54,12 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterOrgPage />} />
 
-          {/* Authenticated Dashboard Shell */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
+          <Route path="/" element={<HomeOrDashboard />}>
             <Route index element={<DashboardOverviewPage />} />
+          </Route>
+
+          {/* Authenticated Dashboard Shell */}
+          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="notifications/compose" element={<ComposeNotificationPage />} />
             <Route path="subscribers" element={<SubscribersPage />} />

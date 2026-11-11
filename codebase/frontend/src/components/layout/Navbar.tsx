@@ -26,7 +26,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
-  const { user, organization, logout, isSimulationMode, setSimulationMode } = useAuth();
+  const { user, organization, logout } = useAuth();
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const location = useLocation();
 
@@ -72,7 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
       {/* Zone 2: Breadcrumb trail / Section link */}
       <div className="hidden md:flex items-center gap-3 text-xs text-slate-400 whitespace-nowrap shrink-0">
         <span className="text-slate-500 font-mono">
-          {organization?.name || 'BizBandhan Technologies'}
+          {organization?.name || 'Organization unavailable'}
         </span>
         <span className="text-slate-700">/</span>
         <span className="text-slate-200 font-medium">{getSectionTitle()}</span>
@@ -91,29 +91,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
         {/* PWA Install */}
         <PWAInstallButton />
-
-        {/* API Mode Selector */}
-        <button
-          type="button"
-          onClick={() => setSimulationMode(!isSimulationMode)}
-          className={`hidden lg:flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono border transition whitespace-nowrap shrink-0 ${
-            isSimulationMode
-              ? 'bg-amber-950/40 text-amber-300 border-amber-800/50'
-              : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/50'
-          }`}
-          title={
-            isSimulationMode
-              ? 'Currently in local developer simulation mode. Click to switch to Live API (/api/v1)'
-              : 'Connected to API endpoint /api/v1. Click to toggle Sandbox Simulation'
-          }
-        >
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              isSimulationMode ? 'bg-amber-400' : 'bg-emerald-400'
-            }`}
-          />
-          <span>{isSimulationMode ? 'Sandbox Mode' : 'API /api/v1'}</span>
-        </button>
 
         {/* User Profile & Menu */}
         <div className="relative">
@@ -142,11 +119,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   {user?.name ? `${user.name.first} ${user.name.last}` : 'Operator'}
                 </p>
                 <p className="font-mono text-[11px] text-slate-400 truncate mt-0.5">
-                  {user?.email || 'operator@bizbandhan.com'}
+                  {user?.email || 'Email unavailable'}
                 </p>
                 <div className="mt-1 flex items-center gap-1 text-[10px] text-cyan-400">
                   <Building2 className="w-3 h-3" />
-                  <span className="truncate">{organization?.slug || 'bizbandhan-tech'}</span>
+                  <span className="truncate">{organization?.slug || 'Workspace unavailable'}</span>
                 </div>
               </div>
 

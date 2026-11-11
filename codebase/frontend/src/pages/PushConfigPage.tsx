@@ -23,7 +23,6 @@ import { CodeSnippet } from '../components/common/CodeSnippet';
 import { useAuth } from '../context/AuthContext';
 
 export const PushConfigPage: React.FC = () => {
-  const { isSimulationMode } = useAuth();
   const [config, setConfig] = useState<PublicVapidConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -88,7 +87,7 @@ curl -X GET "${window.location.origin}/api/v1/web-push/config" \\
           </button>
           <StatusBadge
             status={error || loading ? 'unavailable' : 'connected'}
-            label={error ? 'Configuration unavailable' : loading ? 'Loading configuration' : isSimulationMode ? 'Simulation' : 'GET /web-push/config'}
+            label={error ? 'Configuration unavailable' : loading ? 'Loading configuration' : 'GET /web-push/config'}
           />
         </div>
       </div>
@@ -149,7 +148,7 @@ curl -X GET "${window.location.origin}/api/v1/web-push/config" \\
           </div>
           <div>
             <span className="text-slate-500 block text-[10px]">Security Contact Claim</span>
-            <span className="text-slate-200">{config?.contactEmail || 'mailto:security@bizbandhan.com'}</span>
+            <span className="text-slate-200">{config?.contactEmail || 'Unavailable'}</span>
           </div>
           <div>
             <span className="text-slate-500 block text-[10px]">Browser Client Scope</span>

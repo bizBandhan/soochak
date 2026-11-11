@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import cookieParser from "cookie-parser";
 import express from "express";
 import mongoose from "mongoose";
+import webpush from "web-push";
 import organizationModel from "../module/auth/organization/model.js";
 import { deleteVapidKeys } from "../module/web-push/vapid.js";
 import { corsMiddleware, protectPublicPushOrigins } from "./cors.js";
@@ -86,6 +87,8 @@ after(async () => {
         }
         await mongoose.model("WebPushSite").collection.deleteMany({ workspace: { $in: testWorkspaces } });
         await mongoose.model("Subscriber").collection.deleteMany({ origin: { $in: testWorkspaces } });
+        await mongoose.model("Notify").collection.deleteMany({ origin: { $in: testWorkspaces } });
+        await mongoose.model("NotificationAttempt").collection.deleteMany({ origin: { $in: testWorkspaces } });
         await mongoose.disconnect();
     }
 });
@@ -115,6 +118,50 @@ test("registration creates a workspace key and config returns only its public ke
     assert.equal(config.status, 200);
     assert.equal(publicResponse.data, record.publicKey);
     assert.equal(JSON.stringify(publicResponse).includes(record.encryptedPrivateKey), false);
+});
+
+test("notification API persists and scopes provider statuses", async () => {
+    const login = await request(workspace, "/api/v1/auth", {
+        method: "PUT", body: JSON.stringify({ user: `owner-${suffix}`, password: "test-password" })
+    });
+    assert.equal(login.status, 200);
+    const cookie = login.headers["set-cookie"][0].split(";")[0];
+    const headers = { cookie, origin: `https://${workspace}` };
+    const originalSend = webpush.sendNotification;
+    let calls = 0;
+    webpush.sendNotification = async () => { calls++; };
+    try {
+        await mongoose.model("Subscriber").collection.insertOne({
+            origin: workspace, endpoint: "https://push.example.test/status-test",
+            keys: { p256dh: "test", auth: "test" }
+        });
+        const created = await request(workspace, "/api/v1/web-push/notify", {
+            method: "PUT", headers,
+            body: JSON.stringify({ title: "Test", body: "Test", url: "https://example.test/" })
+        });
+        const record = (await created.json()).data;
+        assert.equal(created.status, 200);
+        assert.ok(record._id);
+        let summary;
+        for (let i = 0; i < 50; i++) {
+            const response = await request(workspace, `/api/v1/web-push/notify/${record._id}/status`, { headers });
+            assert.equal(response.status, 200);
+            summary = (await response.json()).data;
+            if (summary.accepted === 1) break;
+            await new Promise(resolve => setTimeout(resolve, 20));
+        }
+        assert.deepEqual(summary, { available: true, total: 1, queued: 0, attempted: 0, accepted: 1, failed: 0, expired: 0, unknown: 0 });
+        assert.equal(calls, 1);
+        const unauthenticated = await request(workspace, `/api/v1/web-push/notify/${record._id}/status`);
+        assert.equal(unauthenticated.status, 401);
+        const wrongHost = await request(configWorkspace, `/api/v1/web-push/notify/${record._id}/status`, { headers });
+        assert.notEqual(wrongHost.status, 200);
+        const badId = await request(workspace, "/api/v1/web-push/notify/not-an-id/status", { headers });
+        assert.equal(badId.status, 400);
+    } finally {
+        webpush.sendNotification = originalSend;
+        await mongoose.model("Subscriber").collection.deleteMany({ origin: workspace });
+    }
 });
 
 test("public configuration initializes a missing key without login", async () => {

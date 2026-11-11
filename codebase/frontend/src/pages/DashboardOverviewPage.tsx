@@ -32,11 +32,11 @@ export const DashboardOverviewPage: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [sites, setSites] = useState<SiteResource[]>([]);
   const [loading, setLoading] = useState(true);
-  const [backendUnderDev, setBackendUnderDev] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [subs, notifsData, sitesList] = await Promise.all([
         webPushService.listSubscribers(),
@@ -45,7 +45,6 @@ export const DashboardOverviewPage: React.FC = () => {
       ]);
       setSubscribers(subs);
       setNotifications(notifsData.records);
-      setBackendUnderDev(notifsData.backendUnderDevelopment);
       setSites(sitesList);
     } catch (err: unknown) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load dashboard data.');
@@ -59,8 +58,8 @@ export const DashboardOverviewPage: React.FC = () => {
   }, []);
 
   const totalSubscribers = subscribers.length;
-  const subscriberLimit = organization?.limits?.maxSubscribers || 100000;
-  const dailyQuota = organization?.limits?.maxNotificationsPerDay || 5000;
+  const subscriberLimit = organization?.limits?.maxSubscribers;
+  const dailyQuota = organization?.limits?.maxNotificationsPerDay;
 
   return (
     <div className="space-y-6">
@@ -70,7 +69,7 @@ export const DashboardOverviewPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-white tracking-tight">
-              {organization?.name || 'BizBandhan Technologies'}
+              {organization?.name || 'Organization unavailable'}
             </h1>
             <StatusBadge
               status={organization?.status === 'active' ? 'active' : 'pending_provisioning'}
@@ -79,7 +78,7 @@ export const DashboardOverviewPage: React.FC = () => {
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
             <span>Canonical:</span>
             <span className="font-mono text-cyan-300">
-              {organization?.canonicalOrigin || 'https://bizbandhan.com'}
+              {organization?.canonicalOrigin || 'Not configured'}
             </span>
             <span aria-hidden="true" className="text-slate-600">·</span>
             <span>Hostname Verification:</span>
@@ -116,10 +115,10 @@ export const DashboardOverviewPage: React.FC = () => {
             <Users className="w-4 h-4 text-cyan-400" />
           </div>
           <div className="mt-2 text-2xl font-semibold font-mono tabular-nums text-white">
-            {totalSubscribers.toLocaleString()}
+            {loadError ? 'Unavailable' : totalSubscribers.toLocaleString()}
           </div>
           <div className="mt-1 text-[11px] text-slate-500 font-mono">
-            Limit: {subscriberLimit.toLocaleString()} subscribers
+            Limit: {subscriberLimit?.toLocaleString() ?? 'Unavailable'} subscribers
           </div>
         </div>
 
@@ -130,7 +129,7 @@ export const DashboardOverviewPage: React.FC = () => {
             <Globe className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="mt-2 text-2xl font-semibold font-mono tabular-nums text-white">
-            {sites.length}
+            {loadError ? 'Unavailable' : sites.length}
           </div>
           <div className="mt-1 text-[11px] text-slate-500">
             Allowed origins registered
@@ -140,14 +139,14 @@ export const DashboardOverviewPage: React.FC = () => {
         {/* Metric 3 */}
         <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
           <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>Emitted Today</span>
+            <span>Saved Notifications</span>
             <Bell className="w-4 h-4 text-sky-400" />
           </div>
           <div className="mt-2 text-2xl font-semibold font-mono tabular-nums text-white">
-            {notifications.length}
+            {loadError ? 'Unavailable' : notifications.length}
           </div>
           <div className="mt-1 text-[11px] text-slate-500 font-mono">
-            Daily limit: {dailyQuota.toLocaleString()}
+            Daily limit: {dailyQuota?.toLocaleString() ?? 'Unavailable'}
           </div>
         </div>
 
@@ -159,10 +158,10 @@ export const DashboardOverviewPage: React.FC = () => {
           </div>
           <div className="mt-2 text-sm font-semibold text-emerald-400 flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4" />
-            <span>Ingestion Active</span>
+            <span>Provider status in history</span>
           </div>
           <div className="mt-1 text-[11px] text-slate-500 font-mono">
-            VAPID RFC 8292 Standard
+            Device delivery and clicks: next version
           </div>
         </div>
       </div>
@@ -186,13 +185,6 @@ export const DashboardOverviewPage: React.FC = () => {
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-
-          {backendUnderDev && (
-            <div className="p-2.5 rounded bg-slate-950/80 border border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-              <span>GET /web-push/notify currently returns 502 in backend. Displaying client-retained records.</span>
-              <StatusBadge status="planned" label="502 Backend In Progress" />
-            </div>
-          )}
 
           {notifications.length === 0 ? (
             <div className="py-12 text-center text-slate-500 text-xs space-y-2">
@@ -234,10 +226,10 @@ export const DashboardOverviewPage: React.FC = () => {
                   <div className="shrink-0 text-right">
                     <StatusBadge
                       status="accepted"
-                      label="Accepted for Processing"
+                      label="Saved"
                     />
                     <div className="mt-1 text-[10px] text-slate-500 font-mono">
-                      Event Emitted
+                      See history for provider status
                     </div>
                   </div>
                 </div>
@@ -333,7 +325,7 @@ export const DashboardOverviewPage: React.FC = () => {
               <StatusBadge status="connected" label="Connected" />
             </div>
             <p className="text-[11px] text-slate-400">
-              Persists payload and emits async delivery events.
+              Saves notification and starts in-process provider dispatch.
             </p>
           </div>
 
@@ -360,10 +352,10 @@ export const DashboardOverviewPage: React.FC = () => {
           <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 space-y-1">
             <div className="flex items-center justify-between">
               <span className="font-mono text-amber-400 font-semibold">GET /web-push/notify</span>
-              <StatusBadge status="planned" label="502 (In Development)" />
+              <StatusBadge status="connected" label="Records available" />
             </div>
             <p className="text-[11px] text-slate-400">
-              Notification read history returns 502 in current backend build.
+              Reads saved notifications; provider outcomes are shown in history.
             </p>
           </div>
 
@@ -373,7 +365,7 @@ export const DashboardOverviewPage: React.FC = () => {
               <StatusBadge status="unavailable" label="Mutations Disabled" />
             </div>
             <p className="text-[11px] text-slate-400">
-              Routes not mounted yet. UI read-only with explicit badges.
+              Administration UI is unavailable.
             </p>
           </div>
 

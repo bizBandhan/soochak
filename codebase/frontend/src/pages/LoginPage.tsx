@@ -74,6 +74,9 @@ export const LoginPage: React.FC = () => {
         <p className="mt-1 text-center text-xs text-slate-400">
           Web Push management console
         </p>
+        <p className="mt-2 text-center text-xs text-slate-400">
+          Sign in on the workspace URL provided after registration.
+        </p>
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">

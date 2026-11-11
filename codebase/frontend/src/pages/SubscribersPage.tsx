@@ -27,16 +27,6 @@ import { EndpointMask } from '../components/common/EndpointMask';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { StatusBadge } from '../components/common/StatusBadge';
 
-interface TestSubscriberFormValues {
-  endpoint: string;
-  tag: string;
-}
-
-const TEST_SUBSCRIBER_DEFAULTS: TestSubscriberFormValues = {
-  endpoint: '',
-  tag: 'product_updates',
-};
-
 export const SubscribersPage: React.FC = () => {
   const [subscribers, setSubscribers] = useState<PushSubscriber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,20 +37,16 @@ export const SubscribersPage: React.FC = () => {
   const [subscriberToDelete, setSubscriberToDelete] = useState<PushSubscriber | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // New simulated test subscriber modal
-  const [showAddModal, setShowAddModal] = useState(false);
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<TestSubscriberFormValues>({ defaultValues: TEST_SUBSCRIBER_DEFAULTS });
+  const [error, setError] = useState<string | null>(null);
 
   const loadSubscribers = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await webPushService.listSubscribers();
       setSubscribers(data);
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to load subscribers.');
     } finally {
       setLoading(false);
     }
@@ -93,27 +79,12 @@ export const SubscribersPage: React.FC = () => {
       await webPushService.deleteSubscriber(subscriberToDelete._id);
       setSubscribers(subscribers.filter((s) => s._id !== subscriberToDelete._id));
       setSubscriberToDelete(null);
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to delete subscriber.');
+      setSubscriberToDelete(null);
     } finally {
       setIsDeleting(false);
     }
-  };
-
-  const handleRegisterTestSubscriber = async (values: TestSubscriberFormValues) => {
-    const created = await webPushService.createSubscriber({
-      endpoint:
-        values.endpoint.trim() ||
-        `https://fcm.googleapis.com/fcm/send/test_${Date.now().toString(36)}_${Math.random().toString(36).substring(7)}`,
-      keys: {
-        p256dh: 'BNcDemoBrowserPublicKey_' + Math.random().toString(36).substring(7),
-        auth: 'AuthKey_' + Math.random().toString(36).substring(7),
-      },
-      tag: values.tag.trim() || 'general',
-      origin: window.location.origin,
-      userAgent: navigator.userAgent,
-    });
-    setSubscribers([created, ...subscribers]);
-    setShowAddModal(false);
-    reset({ ...TEST_SUBSCRIBER_DEFAULTS, tag: values.tag });
   };
 
   return (
@@ -140,15 +111,8 @@ export const SubscribersPage: React.FC = () => {
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Register Test Subscriber</span>
-          </button>
         </div>
+        {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
       </div>
 
       {/* Safe Endpoint Reveal Policy Banner */}
@@ -205,7 +169,7 @@ export const SubscribersPage: React.FC = () => {
       {/* Subscribers Table */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden shadow-xs">
         <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between text-xs font-semibold text-slate-300">
-          <span>Active Subscribers ({filtered.length})</span>
+          <span>Subscriber records ({filtered.length})</span>
           <span className="text-[11px] font-mono text-slate-500">Method: DELETE /web-push/subscriber/{'{id}'}</span>
         </div>
 
@@ -248,7 +212,7 @@ export const SubscribersPage: React.FC = () => {
                     </td>
 
                     <td className="py-3 px-4 max-w-xs truncate font-mono text-[11px] text-slate-300">
-                      <div className="truncate text-slate-200">{sub.origin || 'https://bizbandhan.com'}</div>
+                      <div className="truncate text-slate-200">{sub.origin || 'Unavailable'}</div>
                       <div className="text-slate-500 text-[10px] truncate max-w-xs">
                         {sub.userAgent || 'Web Push Client'}
                       </div>
@@ -257,9 +221,9 @@ export const SubscribersPage: React.FC = () => {
                     <td className="py-3 px-4 font-mono text-[10px] text-slate-400 whitespace-nowrap">
                       <div className="flex items-center gap-1">
                         <Key className="w-3 h-3 text-slate-500" />
-                        <span>p256dh: {sub.keys?.p256dh ? sub.keys.p256dh.slice(0, 8) + '...' : 'present'}</span>
+                        <span>p256dh: {sub.keys?.p256dh ? 'present' : 'missing'}</span>
                       </div>
-                      <div className="text-slate-500">auth: {sub.keys?.auth ? sub.keys.auth.slice(0, 6) + '...' : 'present'}</div>
+                      <div className="text-slate-500">auth: {sub.keys?.auth ? 'present' : 'missing'}</div>
                     </td>
 
                     <td className="py-3 px-4 font-mono text-[11px] text-slate-400 whitespace-nowrap">
@@ -288,7 +252,7 @@ export const SubscribersPage: React.FC = () => {
       <ConfirmModal
         isOpen={!!subscriberToDelete}
         title="Confirm Subscriber Deletion"
-        message="Are you sure you want to remove and unsubscribe this push endpoint? The subscriber device will no longer receive Web Push notifications emitted by your organization."
+        message="Remove this subscriber record? This does not unsubscribe the browser itself."
         subMessage={subscriberToDelete ? `Endpoint: ${subscriberToDelete.endpoint.slice(0, 48)}...` : undefined}
         confirmLabel="Delete Subscriber"
         cancelLabel="Keep Subscriber"
@@ -298,66 +262,6 @@ export const SubscribersPage: React.FC = () => {
         onCancel={() => setSubscriberToDelete(null)}
       />
 
-      {/* Register Test Subscriber Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-6 space-y-4">
-            <h3 className="text-sm font-semibold text-white">
-              Register New Test Push Subscriber
-            </h3>
-            <p className="text-xs text-slate-400">
-              Simulates a browser device calling <code className="text-cyan-300 font-mono">PUT /web-push/subscriber</code> with W3C PushSubscription credentials.
-            </p>
-
-            <form onSubmit={handleSubmit(handleRegisterTestSubscriber)} noValidate className="space-y-3 text-xs">
-              <div>
-                <label className="block font-medium text-slate-300">Push Endpoint (leave blank for auto-generated FCM URL)</label>
-                <input
-                  type="text"
-                  {...register('endpoint', {
-                    validate: (v) => !v.trim() || /^https:\/\/\S+$/i.test(v.trim()) || 'Endpoint must be an https URL.',
-                  })}
-                  className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-cyan-300 focus:ring-1 focus:ring-cyan-500"
-                  placeholder="https://fcm.googleapis.com/fcm/send/..."
-                />
-                {errors.endpoint && (
-                  <p role="alert" className="mt-1 text-[11px] text-red-400">{errors.endpoint.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-300">Audience Tag</label>
-                <input
-                  type="text"
-                  {...register('tag', { required: 'Audience tag is required.' })}
-                  className="mt-1 block w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-700 rounded text-white focus:ring-1 focus:ring-cyan-500"
-                  placeholder="product_updates"
-                />
-                {errors.tag && (
-                  <p role="alert" className="mt-1 text-[11px] text-red-400">{errors.tag.message}</p>
-                )}
-              </div>
-
-              <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-3 py-1.5 rounded bg-slate-800 text-slate-300 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-medium disabled:opacity-50"
-                >
-                  Create Subscriber (PUT)
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

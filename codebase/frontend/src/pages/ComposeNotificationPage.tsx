@@ -57,7 +57,7 @@ export const ComposeNotificationPage: React.FC = () => {
       body: 'Explore the latest real-time push notification features released today in your BizBandhan dashboard.',
       url: organization?.canonicalOrigin || 'https://bizbandhan.com',
       tag: 'product_updates',
-      audienceFilter: 'tag',
+      audienceFilter: 'all',
     },
   });
   const [title, body, url, tag, audienceFilter] = watch(['title', 'body', 'url', 'tag', 'audienceFilter']);
@@ -149,13 +149,13 @@ export const ComposeNotificationPage: React.FC = () => {
           <div className="p-4 rounded-lg border border-cyan-900/60 bg-cyan-950/30 text-xs text-cyan-200 space-y-2">
             <div className="flex items-center gap-2 font-semibold text-cyan-300">
               <Clock className="w-4 h-4 text-cyan-400" />
-              <span>Event Emitted & Ingestion Pipeline Queued</span>
+              <span>Notification saved; provider status available in history</span>
             </div>
             <p className="text-[11px] leading-relaxed text-slate-300">
               {emissionResult.message}
             </p>
             <p className="text-[11px] leading-relaxed text-slate-400">
-              <strong>Architectural Note:</strong> As documented in the OpenAPI contract, the server returns 200/202 confirmation upon persisting the payload and emitting the async push event. This acknowledges receipt by the Soochak gateway, but does not represent proof of end-user screen display (which depends on subscriber browser connectivity and OS permissions).
+              Provider outcomes appear in notification history. Device delivery/display and click tracking are planned for the next version. The in-process dispatcher does not automatically resend uncertain sends.
             </p>
           </div>
 
@@ -292,16 +292,17 @@ export const ComposeNotificationPage: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => setValue('audienceFilter', 'tag')}
+                  disabled
+                  title="Tag-based targeting is not supported."
                   className={`p-3 rounded-lg border text-left transition ${
                     audienceFilter === 'tag'
                       ? 'bg-cyan-950/60 border-cyan-700 text-white'
                       : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
-                  <p className="font-semibold text-xs">Filter by Tag</p>
+                  <p className="font-semibold text-xs">Filter by Tag (unavailable)</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">
-                    Target a specific subscriber segment tag
+                    Tag-based targeting is not supported yet.
                   </p>
                 </button>
               </div>
@@ -352,7 +353,7 @@ export const ComposeNotificationPage: React.FC = () => {
               <ul className="list-disc pl-4 space-y-1 text-[11px] text-slate-400">
                 <li>Method: <code className="text-cyan-300 font-mono">PUT /web-push/notify</code></li>
                 <li>Payload includes <code className="text-cyan-300 font-mono">title</code>, <code className="text-cyan-300 font-mono">body</code>, <code className="text-cyan-300 font-mono">url</code>, and optional <code className="text-cyan-300 font-mono">tag</code>.</li>
-                <li>Emission persists message and releases worker delivery event.</li>
+                <li>Sending saves the message and starts in-process provider dispatch.</li>
                 <li>Web Push router currently has no frontend-enforced auth middleware; API server validates origin scope.</li>
               </ul>
             </div>

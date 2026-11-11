@@ -45,7 +45,7 @@ Soochak is being designed to work with existing web applications, including webs
 
 ### Multi-Tenant SaaS
 - **Prototype decision:** assign one unique Soochak dashboard/API hostname to each user. That hostname alone identifies the user's prototype workspace and is the scope key for its data; do not introduce a separate tenant entity or tenant ID during prototype development.
-- Use `<slug>.soochak.optiwari.duckdns.org` in local development and `<slug>.soochak.bizbandhan.com` in production. The organization slug determines the user's workspace hostname. The customer's website origin is collected separately for Web Push setup and is not the Soochak hostname or prototype scope key.
+- Use `<slug>.bizbandhan.duckdns.org` in local development and `<slug>.soochak.bizbandhan.com` in production. The organization slug determines the user's workspace hostname. The customer's website origin is collected separately for Web Push setup and is not the Soochak hostname or prototype scope key.
 - Revisit this model only after market validation. At that point, the product may introduce a tenant concept distinct from users and hostnames, with an explicit migration plan. Do not treat this future possibility as a prototype prerequisite.
 - Roles, permissions, and resources are scoped within the hostname-identified prototype workspace. A user has one Soochak hostname during the prototype.
 - Roles group organization users; permissions may be granted to a user or a role.
@@ -85,9 +85,9 @@ CRUD resources use one method mapping: `GET /` reads all records, `POST /` reads
 
 ### Organization and Host Tenancy
 
-**Agreed prototype model:** each user has one unique Soochak dashboard/API hostname derived from the organization slug, and the incoming hostname is the sole prototype workspace identifier and data-scope key. Local development uses `<slug>.soochak.optiwari.duckdns.org`; production uses `<slug>.soochak.bizbandhan.com`. There is no separate tenant entity or tenant ID in the prototype. The backend must resolve the request hostname to its assigned user/workspace and enforce that scope on protected APIs; it must not confuse this Soochak hostname with the customer's website origin.
+**Agreed prototype model:** each user has one unique Soochak dashboard/API hostname derived from the organization slug, and the incoming hostname is the sole prototype workspace identifier and data-scope key. Local development uses `<slug>.bizbandhan.duckdns.org`; production uses `<slug>.soochak.bizbandhan.com`. There is no separate tenant entity or tenant ID in the prototype. The backend must resolve the request hostname to its assigned user/workspace and enforce that scope on protected APIs; it must not confuse this Soochak hostname with the customer's website origin.
 
-The customer's primary website origin is separate data used for Web Push configuration. The protected operator management hosts are `mgmt.soochak.optiwari.duckdns.org` for local development and `mgmt.soochak.bizbandhan.com` for production. Keep the prototype hostname-based approach through market validation. Only after market validation should the team consider introducing a separate tenant concept and plan the required data/auth migration; that future design is not a blocker for prototype work.
+The customer's primary website origin is separate data used for Web Push configuration. The protected operator management hosts are `mgmt.bizbandhan.duckdns.org` for local development and `mgmt.soochak.bizbandhan.com` for production. Keep the prototype hostname-based approach through market validation. Only after market validation should the team consider introducing a separate tenant concept and plan the required data/auth migration; that future design is not a blocker for prototype work.
 
 The eventual public onboarding flow is planned to collect organization details, a canonical customer website origin, owner details, and an owner-chosen password, then require review at the protected management host. The current prototype registration instead creates the organization and sole owner immediately, scopes their workspace to `<slug>.<HOSTED_DOMAIN>`, and returns a workspace URL. Registration does not set an auth cookie on the shared signup host; the owner must sign in on their assigned hostname.
 
@@ -97,7 +97,7 @@ Email verification, customer website/dashboard hostname ownership verification, 
 
 Roles are organization-scoped labels for grouping users. Permissions are explicit grants addressed to a user or a role (for example, `user:<id>` or `role:<id>`); the authorization policy must define how direct-user and role grants combine. Default role names and permission codes will be specified with the endpoint implementation. Organization `name` and `slug` are required; usage-limit fields remain experimental until limit types are decided.
 
-For self-hosted instances, the dashboard/API host may be a dynamic DNS name such as `soochak.optiwari.duckdns.org`. It can resolve to a private LAN address and still support push when the browser accesses that hostname over valid HTTPS; the LAN test at `https://soochak.optiwari.duckdns.org` resolving to `192.168.0.145` has worked. A raw remote `http://<private-ip>` URL is not the supported push setup. Setup guidance should distinguish hostname resolution from HTTPS certificate provisioning. Formal hostname ownership verification is deferred from initial activation.
+For self-hosted instances, the dashboard/API host may be a dynamic DNS name such as `bizbandhan.duckdns.org`. It can resolve to a private LAN address and still support push when the browser accesses that hostname over valid HTTPS. A raw remote `http://<private-ip>` URL is not the supported push setup. Setup guidance should distinguish hostname resolution from HTTPS certificate provisioning. Formal hostname ownership verification is deferred from initial activation.
 
 The longer-term platform is planned to add a browser SDK, campaign scheduling, and durable asynchronous delivery. NATS JetStream and separate workers are future architecture components, not required services in the initial Compose topology.
 
@@ -229,7 +229,7 @@ Prototype behavior will be checked manually using internal accounts and test dev
 - [x] Configure wildcard DNS and TLS coverage for slug-based workspace hostnames via NGINX Proxy Manager on the external `publicweb` network (managed outside this repository).
 - [x] Scope prototype signup provisioning and user records by the hostname-derived workspace; defer a separate tenant entity/ID until after market validation.
 - [ ] Complete and verify authorization and data isolation across all protected APIs using the hostname-resolved workspace.
-- [ ] Add the protected operator portal at `mgmt.soochak.optiwari.duckdns.org` locally and `mgmt.soochak.bizbandhan.com` in production.
+- [ ] Add the protected operator portal at `mgmt.bizbandhan.duckdns.org` locally and `mgmt.soochak.bizbandhan.com` in production.
 - [ ] Add a first-run setup page for self-hosted deployments.
 - [ ] Defer email verification, website/dashboard hostname ownership verification, custom dashboard domains, and plan payment until a later phase.
 
@@ -282,19 +282,27 @@ Soochak has two planned environments and no staging environment:
 
 | Environment | Platform base origin |
 |---|---|
-| Development | `https://soochak.optiwari.duckdns.org` (tested on LAN with the hostname resolving to `192.168.0.145`) |
+| Development | `https://bizbandhan.duckdns.org` |
 | Live | `https://soochak.bizbandhan.com` |
 
 These are platform environment base origins. Routing policy:
 
 | Environment | Management host | User dashboard/API host (prototype) |
 |---|---|---|
-| Local development | `mgmt.soochak.optiwari.duckdns.org` | `<slug>.soochak.optiwari.duckdns.org` |
+| Local development | `mgmt.bizbandhan.duckdns.org` | `<slug>.bizbandhan.duckdns.org` |
 | Production | `mgmt.soochak.bizbandhan.com` | `<slug>.soochak.bizbandhan.com` |
 
 `<slug>` is the organization slug and unique subdomain label assigned to one user. During the prototype, this hostname alone identifies and scopes that user's workspace; the customer's website origin is a separate setting and is not used as the dashboard/API host. A distinct tenant entity is deferred until after market validation.
 
-Set backend `HOSTED_DOMAIN` to `soochak.optiwari.duckdns.org` for development or `soochak.bizbandhan.com` for production. Registration is accepted only at that exact signup hostname; it assigns `<slug>.<HOSTED_DOMAIN>` and returns its HTTPS URL. The gateway routes the development root and nested workspace hostnames to the development frontend/API stack; other hostnames use production routing. Wildcard DNS and TLS certificates are managed separately in NGINX Proxy Manager on the external `publicweb` Docker network and are not configured in this repository.
+Set backend `HOSTED_DOMAIN` to `bizbandhan.duckdns.org` for development or `soochak.bizbandhan.com` for production. Registration is accepted only at that exact signup hostname; it assigns `<slug>.<HOSTED_DOMAIN>` and returns its HTTPS URL. The gateway routes `bizbandhan.duckdns.org` and `*.bizbandhan.duckdns.org` to the development frontend/API stack; other hostnames use production routing. DNS and trusted TLS certificates for the signup and workspace hostnames are managed separately in NGINX Proxy Manager on the external `publicweb` Docker network and are not configured in this repository.
+
+Use HTTPS for both signup and the workspace dashboard: state-changing cookie-authenticated API requests reject HTTP origins. Changing the gateway or `HOSTED_DOMAIN` does not migrate existing hostname-scoped workspace data. Preserve or deliberately reset development data separately, and recreate the backend after editing its environment file:
+
+```bash
+docker compose up -d --no-deps backend
+```
+
+For a fresh database, register at `https://bizbandhan.duckdns.org`, then sign in at the workspace URL returned by registration. A database reset removes accounts, subscribers, and VAPID keys; existing demo clients and browser subscriptions must be set up again as described in the [demo instructions](codebase/demo-site/README.md).
 
 The browser SDK is intended to use the same standards-based implementation across browsers that support Web Push. Browser and operating-system combinations are test targets, not separate SDK builds; capability detection and narrowly scoped compatibility handling may be needed where platform behavior differs. Pilot support should be documented for combinations actually tested, including Service Worker registration, permission and subscription creation, backend registration, notification receipt, and click-through behavior. The initial pilot browser and operating-system matrix is to be selected from the intended pilot users' devices.
 
@@ -307,6 +315,12 @@ The backend exposes `/api/v1/health/live` for process liveness and `/api/v1/heal
 Run VAPID generation and route integration tests against the configured MongoDB service with `docker compose exec -T backend node --test core/vapid.test.js core/vapid-routes.test.js`. The tests use a separate `soochak_vapid_tests` database and clean up their own records.
 
 Run downloaded integration-kit tests with `docker compose exec -T frontend node --import tsx --test src/services/integrationKit.test.ts`. Under Sites & Allowed Origins, register each exact HTTPS website origin, then download the client module and worker handler. Host both on the customer's website; merge or import the handler into an existing worker instead of replacing it. The client uses the workspace API without cookies and prompts for permission only when its subscribe function is called from a user action. Site-origin CORS is limited to public config and subscription endpoints and does not establish domain ownership or protect them against non-browser clients. Removing an origin blocks future cross-origin browser calls but does not delete subscribers.
+
+Run frontend HTTP error handling tests with `docker compose exec -T frontend node --import tsx --test src/services/httpApi.test.ts` and provider status tests with `docker compose exec -T backend node --test core/notification-status.test.js`. The dashboard does not substitute simulated success when API requests fail. Notification history shows queued, in-progress, provider-accepted, provider-rejected, expired, and unknown counts. Provider acceptance is not device delivery; device display and click tracking are planned for the next version. Notifications created before status tracking show status unavailable.
+
+Dispatch runs in-process, not in a durable queue. On a lost dispatcher heartbeat, queued or in-progress attempts become unknown after two minutes; uncertain sends are not automatically resent. Network errors also produce unknown outcomes. HTTP 404/410 provider responses are reported as expired, but subscriptions are not automatically removed. A saved notification or provider acceptance does not confirm display.
+
+The frontend image excludes host `node_modules` and `dist`; Vite keeps its development dependency cache in `node_modules/.vite-soochak` inside the container.
 
 For real-browser testing, `codebase/demo-site/` contains a framework-free static demo. Follow its [hosting and integration instructions](codebase/demo-site/README.md) to deploy it on a separate HTTPS site and use workspace-generated client and worker downloads.
 
@@ -448,7 +462,7 @@ Product hostnames:
 - `<slug>.soochak.bizbandhan.com` — Production prototype user dashboard and API host.
 - `cdn.soochak.bizbandhan.com` — SDK and static assets.
 
-Local development equivalents use `mgmt.soochak.optiwari.duckdns.org` and `<slug>.soochak.optiwari.duckdns.org`.
+Local development equivalents use `mgmt.bizbandhan.duckdns.org` and `<slug>.bizbandhan.duckdns.org`.
 
 These hostnames are proposed and require DNS configuration before deployment.
 
