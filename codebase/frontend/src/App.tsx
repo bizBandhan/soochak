@@ -20,6 +20,10 @@ import { PushConfigPage } from './pages/PushConfigPage';
 import { UsersRolesPermissionsPage } from './pages/UsersRolesPermissionsPage';
 import { OrgSettingsPage } from './pages/OrgSettingsPage';
 import { ProfileSecurityPage } from './pages/ProfileSecurityPage';
+import { CoachingLandingPage } from './pages/CoachingLandingPage';
+import { CreatorsLandingPage } from './pages/CreatorsLandingPage';
+import { IndustryLandingPage } from './components/marketing/IndustryLandingPage';
+import { industryLandingPages } from './pages/IndustryLandingPages';
 
 const SessionLoading: React.FC = () => (
   <div className="h-screen w-full bg-slate-950 flex flex-col items-center justify-center text-slate-400">
@@ -53,6 +57,11 @@ export default function App() {
           {/* Public Auth Routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterOrgPage />} />
+          <Route path="/landing/coaching" element={<CoachingLandingPage />} />
+          <Route path="/landing/creators" element={<CreatorsLandingPage />} />
+          {industryLandingPages.map((config) => (
+            <Route key={config.vertical} path={`/landing/${config.vertical}`} element={<IndustryLandingPage config={config} />} />
+          ))}
 
           <Route path="/" element={<HomeOrDashboard />}>
             <Route index element={<DashboardOverviewPage />} />

@@ -179,6 +179,8 @@ This file is served from Soochak's own origin for prototype testing. A Service W
 
 The repository contains Compose services for the frontend dashboard, backend, database, and gateway. The gateway route map sends non-API paths to the frontend, with `/api...` routed to the backend. Prototype checks are manual, so an automated test layout is not required yet.
 
+The frontend's public assets include [`llms.txt`](codebase/frontend/public/llms.txt) and [`ai-catalog.json`](codebase/frontend/public/ai-catalog.json), served at `/llms.txt` and `/ai-catalog.json` by the dashboard deployment. They summarize the product and link to the authoritative project documentation while distinguishing prototype functionality from planned work.
+
 ```text
 soochak/
 ├── codebase/

@@ -1,0 +1,79 @@
+{
+  "format_version": "1.0",
+  "name": "Soochak by BizBandhan",
+  "summary": "Developer-first Web Push notification management platform for organizations.",
+  "product_status": "early-stage-prototype",
+  "publisher": {
+    "name": "BizBandhan"
+  },
+  "category": [
+    "Developer tools",
+    "Web Push notifications"
+  ],
+  "intended_audiences": [
+    "Website developers",
+    "Campaign operators",
+    "Organization owners"
+  ],
+  "technology": {
+    "dashboard": [
+      "React",
+      "TypeScript",
+      "Vite"
+    ],
+    "backend": [
+      "Node.js",
+      "Express"
+    ],
+    "database": "MongoDB",
+    "browser_integration": [
+      "Web Push API",
+      "Service Workers",
+      "VAPID"
+    ],
+    "deployment": "Docker Compose with an NGINX gateway"
+  },
+  "capabilities": [
+    {
+      "name": "Organization signup and hostname-scoped dashboard sessions",
+      "status": "prototype"
+    },
+    {
+      "name": "Web Push configuration and subscriber management",
+      "status": "prototype"
+    },
+    {
+      "name": "Downloadable browser integration client and Service Worker handler",
+      "status": "prototype"
+    },
+    {
+      "name": "Notification dispatch and provider outcome reporting",
+      "status": "in-progress"
+    }
+  ],
+  "not_yet_implemented_as_complete_features": [
+    "Operator-reviewed onboarding and management portal",
+    "Durable notification queue, separate delivery workers, and complete scheduling/retry behavior",
+    "Device display and click tracking",
+    "Complete role and permission administration"
+  ],
+  "api": {
+    "base_path": "/api/v1",
+    "openapi_spec": "https://github.com/bizBandhan/soochak/blob/master/codebase/backend/public/api-docs/openapi.yml"
+  },
+  "documentation": {
+    "overview": "https://github.com/bizBandhan/soochak/blob/master/README.md",
+    "product_requirements": "https://github.com/bizBandhan/soochak/blob/master/docs/PRD.md",
+    "functional_requirements": "https://github.com/bizBandhan/soochak/blob/master/docs/FRD.md",
+    "frontend_status": "https://github.com/bizBandhan/soochak/blob/master/docs/FRONTEND.md",
+    "llms_txt": "/llms.txt"
+  },
+  "workspace_model": "During the prototype, each user has one unique Soochak dashboard/API hostname that scopes the workspace; the customer's website origin is separate configuration. There is no separate tenant ID.",
+  "important_limitations": [
+    "Provider acceptance does not confirm device delivery, display, or reading.",
+    "A website's existing Service Worker must not be silently replaced.",
+    "HTTPS and an explicit user action are required for browser permission and subscription flows.",
+    "Prototype status does not imply production readiness, an SLA, or guaranteed delivery."
+  ],
+  "source_repository": "https://github.com/bizBandhan/soochak"
+}

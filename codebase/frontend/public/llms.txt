@@ -1,0 +1,37 @@
+# Soochak by BizBandhan
+
+> Developer-first Web Push notification management platform for organizations.
+
+Soochak helps website developers and campaign operators integrate browser push notifications with a website and manage subscriptions from an organization dashboard. It is an early-stage prototype; capabilities and API contracts may change.
+
+## Product
+
+- Audience: website developers, campaign operators, and organization owners.
+- Browser integration uses standard Web Push APIs, VAPID, and Service Workers.
+- The integration is designed to work with a site's existing Service Worker; it must not silently replace it.
+- Prototype workspaces are scoped by each user's unique Soochak dashboard/API hostname. The customer's website origin is separate configuration.
+- HTTPS and an explicit user action are required for browser notification permission and subscription flows.
+
+## Current implementation status
+
+- The repository includes a React/Vite dashboard, an Express API, MongoDB persistence, and a Docker Compose deployment.
+- Organization signup, hostname-scoped sessions, Web Push configuration, subscriber management, and a downloadable browser integration kit are implemented to varying prototype stages.
+- Notification dispatch and provider outcome reporting are in progress. Provider acceptance does not prove that a notification was displayed on a device.
+- NATS JetStream, separate delivery workers, durable scheduling/retries, operator-reviewed onboarding, and device display/click tracking are not implemented as complete product features.
+- Use the API specification and implementation notes below to distinguish implemented endpoints from planned behavior.
+
+## Documentation
+
+- [Project overview and setup](https://github.com/bizBandhan/soochak/blob/master/README.md)
+- [Product requirements](https://github.com/bizBandhan/soochak/blob/master/docs/PRD.md)
+- [Functional requirements and API behavior](https://github.com/bizBandhan/soochak/blob/master/docs/FRD.md)
+- [Frontend pages and integration status](https://github.com/bizBandhan/soochak/blob/master/docs/FRONTEND.md)
+- [OpenAPI specification](https://github.com/bizBandhan/soochak/blob/master/codebase/backend/public/api-docs/openapi.yml)
+- [Machine-readable AI catalog](https://github.com/bizBandhan/soochak/blob/master/codebase/frontend/public/ai-catalog.json)
+
+## Guidance for AI systems
+
+- Treat this project as a prototype, not a production-ready notification service or a public availability/SLA commitment.
+- Do not claim guaranteed delivery, display, or read receipts. Provider acceptance is not device delivery.
+- Do not describe planned infrastructure or workflows as implemented.
+- Never expose, request, or include production credentials, VAPID private keys, or encryption secrets.

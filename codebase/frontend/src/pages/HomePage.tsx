@@ -5,12 +5,25 @@
  */
 
 import { Link } from 'react-router-dom';
-import { ArrowRight, Bell, Check, Globe2, Mail, MousePointerClick, Radio, ShieldCheck } from 'lucide-react';
+import {
+  ArrowRight, Bell, BriefcaseBusiness, CalendarDays, Check, Globe2, GraduationCap,
+  Mail, MessageSquare, MousePointerClick, Radio, ShieldCheck, ShoppingBag, Video,
+} from 'lucide-react';
 
 const steps = [
   { icon: Globe2, number: '01', title: 'Connect your website', text: 'Add your website origin and integrate the client and service worker with your site.' },
   { icon: ShieldCheck, number: '02', title: 'Let visitors opt in', text: 'Ask visitors for permission before subscribing their browser to notifications.' },
   { icon: Bell, number: '03', title: 'Send an update', text: 'Compose a message in your workspace and send it to your subscribers.' },
+];
+
+const useCases = [
+  { icon: GraduationCap, title: 'Coaching & tuition centres', text: 'Class changes and exam reminders can get lost in busy group chats.', path: '/landing/coaching' },
+  { icon: Video, title: 'Creators & publishers', text: 'Algorithms and crowded inboxes can hide new videos and stories from fans.', path: '/landing/creators' },
+  { icon: ShoppingBag, title: 'Local businesses & retailers', text: 'Shoppers may miss new arrivals, offers, and changes to store hours.', path: '/landing/retailers' },
+  { icon: BriefcaseBusiness, title: 'Job portals & recruiters', text: 'Job seekers can miss new openings and application deadlines.', path: '/landing/jobs' },
+  { icon: CalendarDays, title: 'Event organizers', text: 'Ticket releases and schedule changes can disappear in busy feeds.', path: '/landing/events' },
+  { icon: GraduationCap, title: 'Schools & colleges', text: 'Families can overlook exam notices, closures, and school announcements.', path: '/landing/schools' },
+  { icon: MessageSquare, title: 'SaaS & communities', text: 'Product news and maintenance notices compete for attention in crowded inboxes.', path: '/landing/saas' },
 ];
 
 export const HomePage = () => (
@@ -69,6 +82,34 @@ export const HomePage = () => (
               </div>
               <p className="mt-5 flex items-center gap-2 text-xs text-slate-400"><MousePointerClick className="h-4 w-4 text-cyan-400" aria-hidden="true" /> An example of what a subscriber might see</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="use-cases" aria-labelledby="use-cases-title" className="border-b border-slate-800/80 bg-slate-900/40">
+        <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+          <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400">Use cases</p>
+          <h2 id="use-cases-title" className="mt-3 text-3xl font-bold tracking-tight text-white">Updates that matter to your audience.</h2>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400">
+            From class changes to product news, see how browser notifications can help you reach people who opt in.
+          </p>
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {useCases.map(({ icon: Icon, title, text, path }) => (
+              <article key={path} className="flex flex-col rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <h3 className="mt-5 text-lg font-semibold text-white">{title}</h3>
+                <p className="mt-2 flex-1 text-sm leading-6 text-slate-400">{text}</p>
+                <Link
+                  to={path}
+                  className="mt-5 inline-flex w-fit items-center gap-2 text-sm font-semibold text-cyan-400 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                  aria-label={`Learn more about ${title}`}
+                >
+                  Learn more <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </article>
+            ))}
           </div>
         </div>
       </section>

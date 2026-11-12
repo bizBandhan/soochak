@@ -21,7 +21,14 @@ Set `VITE_API_BASE_URL` to the API base URL when needed; the default is `/api/v1
 |---|---|---|
 | `/login` | Login | UI and API adapter call the implemented cookie-session login endpoint; sign-in must happen on the user's assigned hostname. |
 | `/register` | Organization registration | Prototype registration creates the organization and sole owner under `<slug>.<HOSTED_DOMAIN>`, then links to the workspace sign-in page. It does not set a cookie on the shared signup hostname. Operator review and status emails remain unimplemented. |
-| `/` | Home or dashboard | Signed-out visitors see the public introduction and links to login and registration. Signed-in workspace users see their dashboard overview. |
+| `/landing/coaching` | Coaching and tuition landing page | Public page linking to registration with `vertical=coaching`. |
+| `/landing/creators` | Creators and publishers landing page | Public page linking to registration with `vertical=creators`. |
+| `/landing/retailers` | Local businesses and retailers landing page | Public page linking to registration with `vertical=retailers`. |
+| `/landing/jobs` | Job portals and recruiters landing page | Public page linking to registration with `vertical=jobs`. |
+| `/landing/events` | Event organizers landing page | Public page linking to registration with `vertical=events`. |
+| `/landing/schools` | Schools and colleges landing page | Public page linking to registration with `vertical=schools`. |
+| `/landing/saas` | SaaS products and communities landing page | Public page linking to registration with `vertical=saas`. |
+| `/` | Home or dashboard | Signed-out visitors see the public introduction, audience use cases, and links to landing pages, login, and registration. Signed-in workspace users see their dashboard overview. |
 | `/notifications` | Notification history | Reads persisted notification records and provider outcome counts; device display and click tracking are planned for the next version. |
 | `/notifications/compose` | Compose and send | UI calls `PUT /api/v1/web-push/notify`; backend records attempts and starts in-process dispatch without confirming device delivery. |
 | `/subscribers` | Push subscribers | UI and adapters call subscriber list/query/create/delete endpoints. |
@@ -32,6 +39,10 @@ Set `VITE_API_BASE_URL` to the API base URL when needed; the default is `/api/v1
 | `/profile` | Profile and security | UI calls the mounted `/api/v1/me` routes for profile reads/updates, password changes, and logout. |
 
 Authenticated pages are nested under the application layout with a responsive sidebar/navbar. Shared components include notification preview, status badges, endpoint masking, confirmation modal, offline indicator, code snippets, and PWA install control.
+
+Landing-page registration links include a `vertical` query parameter; the current registration form does not use or save it.
+
+The frontend serves [`robots.txt`](../codebase/frontend/public/robots.txt) and [`sitemap.xml`](../codebase/frontend/public/sitemap.xml) at the site root. The sitemap lists the public pages on the documented live hostname `https://soochak.bizbandhan.com`; update both files when that hostname or the public route inventory changes. Development and workspace hosts serve the same files and point crawlers to the live sitemap. Robots directives are crawler guidance, not access control.
 
 ## API integration
 

@@ -11,12 +11,6 @@ interface PhoneInputProps {
   className?: string;
 }
 
-// Picks the dial-code country from the browser language (e.g. en-IN -> in).
-const guessCountry = (): string => {
-  const region = navigator.language.split('-')[1];
-  return region ? region.toLowerCase() : 'in';
-};
-
 export const PhoneInput: React.FC<PhoneInputProps> = ({ value, onChange, onBlur, className }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const itiRef = useRef<Iti | null>(null);
@@ -28,7 +22,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ value, onChange, onBlur,
     if (!input) return;
 
     const iti = intlTelInput(input, {
-      initialCountry: guessCountry() as never,
+      initialCountry: 'in',
       separateDialCode: true,
       strictMode: true,
     });
