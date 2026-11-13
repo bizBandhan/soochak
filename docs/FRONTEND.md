@@ -1,11 +1,11 @@
 # Frontend Status and Route Guide
 
 **Product:** Soochak by BizBandhan  
-**Status:** Prototype dashboard; UI pages exist, and API integration is partial. Registration decisions below describe the target flow and are not yet implemented. Updated 2026-10-30.
+**Status:** Prototype dashboard; UI pages exist, and API integration is partial. Registration decisions below describe the target flow and are not yet implemented. Updated 2026-11-12.
 
 ## Application
 
-The dashboard is under `codebase/frontend/`. It uses React 19, TypeScript, Vite, Tailwind CSS, and React Router. It is available as the `frontend` service in `docker-compose.yml`; the gateway routes non-API paths to it and routes `/api...` paths to the backend.
+The dashboard is under `codebase/frontend/`. It uses React 19, TypeScript, Vite, Tailwind CSS, and React Router. Compose runs the production build as `frontend` and an isolated Vite preview as `frontend-dev`; the gateway routes development hostnames to the latter and production hostnames to the former. Both frontend routes share the configured backend for `/api...` requests.
 
 ```bash
 cd codebase/frontend
@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-Set `VITE_API_BASE_URL` to the API base URL when needed; the default is `/api/v1`. The backend `HOSTED_DOMAIN` must match the platform signup host. Wildcard DNS/TLS are managed externally through NGINX Proxy Manager on the `publicweb` network. `npm run build` creates a production build and `npm run lint` runs TypeScript checking (`tsc --noEmit`).
+Set `VITE_API_BASE_URL` to the API base URL when needed; the default is `/api/v1`. The backend `HOSTED_DOMAIN` must match the platform signup host. Wildcard DNS/TLS are managed externally through NGINX Proxy Manager on the `publicweb` network. `npm run build` creates a production build and prerenders the public-facing routes; `npm run lint` runs TypeScript checking (`tsc --noEmit`).
 
 ## Routes and pages
 
@@ -42,7 +42,11 @@ Authenticated pages are nested under the application layout with a responsive si
 
 Landing-page registration links include a `vertical` query parameter; the current registration form does not use or save it.
 
-The frontend serves [`robots.txt`](../codebase/frontend/public/robots.txt) and [`sitemap.xml`](../codebase/frontend/public/sitemap.xml) at the site root. The sitemap lists the public pages on the documented live hostname `https://soochak.bizbandhan.com`; update both files when that hostname or the public route inventory changes. Development and workspace hosts serve the same files and point crawlers to the live sitemap. Robots directives are crawler guidance, not access control.
+The frontend build prerenders the home, login, registration, and industry landing pages as static HTML. Authenticated workspace routes remain client-rendered because their content is user- and workspace-specific. Each route has a title, description, keywords, robots directive, canonical URL where indexable, and JSON-LD WebPage schema; the homepage also identifies the site publisher and SoftwareApplication. Private routes use `noindex, nofollow` and the SPA fallback serves a separate noindex shell for them. The build generates `sitemap.xml` from the public route inventory at `https://soochak.bizbandhan.com`; `robots.txt` declares that sitemap. Development and workspace hosts point crawlers to the live sitemap. NGINX serves both discovery files directly instead of routing requests through the SPA fallback. Robots directives are crawler guidance, not access control.
+
+Dashboard and non-home routes are loaded as separate JavaScript chunks. Canonical prerendered marketing pages on the public base hosts skip React hydration; their links remain usable as normal HTML anchors. The public base hosts (`soochak.bizbandhan.com`, `bizbandhan.duckdns.org`, and local `localhost` previews) do not request a workspace session; workspace subdomains continue to restore their cookie-backed session. Homepage link text is descriptive, small-print text meets the audited contrast threshold, and Google Fonts is loaded without blocking the initial render.
+
+Run `npm run test:seo` to verify route metadata and structured-data coverage.
 
 ## API integration
 

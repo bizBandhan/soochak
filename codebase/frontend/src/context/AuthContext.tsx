@@ -13,6 +13,7 @@ import type {
 } from '../types';
 import { authService, organizationService } from '../services/apiAdapters';
 import { apiClient } from '../services/apiClient';
+import { isPublicSiteHostname } from '../constants/site';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -60,6 +61,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [reloadOrg]);
 
   useEffect(() => {
+    if (isPublicSiteHostname(window.location.hostname)) {
+      setIsLoading(false);
+      return;
+    }
     initAuth();
   }, [initAuth]);
 

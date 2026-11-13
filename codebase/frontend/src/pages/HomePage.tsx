@@ -61,7 +61,7 @@ export const HomePage = () => (
               </Link>
               <a href="#how-it-works" className="px-1 py-3 text-sm font-semibold text-slate-300 transition hover:text-white">See how it works &darr;</a>
             </div>
-            <p className="mt-5 text-xs leading-5 text-slate-500">Already have a workspace? Log in from your assigned workspace URL.</p>
+            <p className="mt-5 text-xs leading-5 text-slate-400">Already have a workspace? Log in from your assigned workspace URL.</p>
           </div>
 
           <div className="relative mx-auto w-full max-w-md" aria-label="Example notification">
@@ -104,9 +104,8 @@ export const HomePage = () => (
                 <Link
                   to={path}
                   className="mt-5 inline-flex w-fit items-center gap-2 text-sm font-semibold text-cyan-400 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-                  aria-label={`Learn more about ${title}`}
                 >
-                  Learn more <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  Explore {title} <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
               </article>
             ))}
@@ -122,7 +121,7 @@ export const HomePage = () => (
             <article key={number} className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
               <div className="flex items-center justify-between">
                 <Icon className="h-6 w-6 text-cyan-400" aria-hidden="true" />
-                <span className="font-mono text-xs text-slate-500">{number}</span>
+                <span className="font-mono text-xs text-slate-400">{number}</span>
               </div>
               <h3 className="mt-6 text-lg font-semibold text-white">{title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-400">{text}</p>
@@ -150,7 +149,7 @@ export const HomePage = () => (
               <p className="mt-5 flex items-start gap-2 text-sm text-slate-300"><Check className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" aria-hidden="true" /> Suited to longer content, receipts and detailed updates.</p>
             </article>
           </div>
-          <p className="mt-6 text-xs leading-5 text-slate-500">Notification display depends on browser and device settings. Provider acceptance does not guarantee delivery or display.</p>
+          <p className="mt-6 text-xs leading-5 text-slate-400">Notification display depends on browser and device settings. Provider acceptance does not guarantee delivery or display.</p>
         </div>
       </section>
 
@@ -162,7 +161,7 @@ export const HomePage = () => (
     </main>
 
     <footer className="border-t border-slate-800/80">
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-6 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <span>Soochak by BizBandhan</span>
         <span>Already registered? Sign in at your workspace URL.</span>
       </div>

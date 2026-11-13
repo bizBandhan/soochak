@@ -1,9 +1,19 @@
-import {createRoot} from 'react-dom/client';
-import { registerSW } from 'virtual:pwa-register';
-import App from './App.tsx';
+import { shouldHydrateApp } from './constants/site';
 import './index.css';
 
-// Register PWA service worker with auto-update
-registerSW({ immediate: true });
+if (
+  shouldHydrateApp(
+    window.location.hostname,
+    window.location.pathname,
+    Boolean(document.head.querySelector('link[rel="canonical"]')),
+  )
+) {
+  const [{ createRoot }, { default: App }, { registerSW }] = await Promise.all([
+    import('react-dom/client'),
+    import('./App'),
+    import('virtual:pwa-register'),
+  ]);
 
-createRoot(document.getElementById('root')!).render(<App />);
+  registerSW({ immediate: true });
+  createRoot(document.getElementById('root')!).render(<App />);
+}

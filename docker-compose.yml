@@ -35,6 +35,22 @@ services:
       - ./codebase/frontend/vite.config.ts:/app/vite.config.ts
     networks:
       - soochak
+  frontend-dev: # Isolated Vite preview for development hostnames
+    image: optiwariindia/soochak-frontend:development-1.0.0
+    build:
+      context: ./codebase/frontend
+      target: development
+    restart: unless-stopped
+    volumes:
+      - ./codebase/frontend/index.html:/app/index.html
+      - ./codebase/frontend/package.json:/app/package.json
+      - ./codebase/frontend/metadata.json:/app/metadata.json
+      - ./codebase/frontend/src:/app/src
+      - ./codebase/frontend/public:/app/public
+      - ./codebase/frontend/tsconfig.json:/app/tsconfig.json
+      - ./codebase/frontend/vite.config.ts:/app/vite.config.ts
+    networks:
+      - soochak
   backend: # Express JS Applciation, Core of the project
     image: optiwariindia/soochak:${BUILD_TARGET}-1.0.0
     build:
